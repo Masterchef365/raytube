@@ -168,97 +168,27 @@ struct PhosphorBuffer {
 #[expect(unsafe_code)] // we need unsafe code to use gl
 impl PhosphorDisplay {
     fn new(gl: &gl::Context, width: i32, height: i32) -> Self {
-        let shader_version = egui_glow::ShaderVersion::get(gl);
+        let program = create_program(
+            gl,
+            &[
+                (gl::VERTEX_SHADER, include_str!("shaders/phosphor.vert")),
+                (gl::FRAGMENT_SHADER, include_str!("shaders/phosphor.frag")),
+            ],
+        );
 
-        unsafe {
-            let program = gl.create_program().expect("Cannot create program");
+        let front_buffer = PhosphorBuffer::new(gl, width, height);
+        let back_buffer = PhosphorBuffer::new(gl, width, height);
 
-            let (vertex_shader_source, fragment_shader_source) = (
-                r#"
-                    const vec2 verts[3] = vec2[3](
-                        vec2(0.0, 1.0),
-                        vec2(-1.0, -1.0),
-                        vec2(1.0, -1.0)
-                    );
-                    const vec4 colors[3] = vec4[3](
-                        vec4(1.0, 0.0, 0.0, 1.0),
-                        vec4(0.0, 1.0, 0.0, 1.0),
-                        vec4(0.0, 0.0, 1.0, 1.0)
-                    );
-                    out vec4 v_color;
-                    uniform float u_angle;
-                    void main() {
-                        v_color = colors[gl_VertexID];
-                        gl_Position = vec4(verts[gl_VertexID], 0.0, 1.0);
-                        gl_Position.x *= cos(u_angle);
-                    }
-                "#,
-                r#"
-                    precision mediump float;
-                    in vec4 v_color;
-                    out vec4 out_color;
-                    void main() {
-                        out_color = v_color;
-                    }
-                "#,
-            );
+        let vertex_array = unsafe {
+            gl.create_vertex_array()
+                .expect("Cannot create vertex array")
+        };
 
-            let shader_sources = [
-                (gl::VERTEX_SHADER, vertex_shader_source),
-                (gl::FRAGMENT_SHADER, fragment_shader_source),
-            ];
-
-            let shaders: Vec<_> = shader_sources
-                .iter()
-                .map(|(shader_type, shader_source)| {
-                    let shader = gl
-                        .create_shader(*shader_type)
-                        .expect("Cannot create shader");
-                    gl.shader_source(
-                        shader,
-                        &format!(
-                            "{}\n{}",
-                            shader_version.version_declaration(),
-                            shader_source
-                        ),
-                    );
-                    gl.compile_shader(shader);
-                    assert!(
-                        gl.get_shader_compile_status(shader),
-                        "Failed to compile custom_3d_glow {shader_type}: {}",
-                        gl.get_shader_info_log(shader)
-                    );
-
-                    gl.attach_shader(program, shader);
-                    shader
-                })
-                .collect();
-
-            gl.link_program(program);
-            assert!(
-                gl.get_program_link_status(program),
-                "{}",
-                gl.get_program_info_log(program)
-            );
-
-            for shader in shaders {
-                gl.detach_shader(program, shader);
-                gl.delete_shader(shader);
-            }
-
-            let vertex_array = gl
-                .create_vertex_array()
-                .expect("Cannot create vertex array");
-
-            let front_buffer = PhosphorBuffer::new(gl, width, height);
-            let back_buffer = PhosphorBuffer::new(gl, width, height);
-
-            Self {
-                front_buffer,
-                back_buffer,
-                program,
-                vertex_array,
-            }
+        Self {
+            front_buffer,
+            back_buffer,
+            program,
+            vertex_array,
         }
     }
 }
@@ -266,88 +196,14 @@ impl PhosphorDisplay {
 #[expect(unsafe_code)] // we need unsafe code to use gl
 impl EguiGlProgram {
     fn new(gl: &gl::Context, width: i32, height: i32) -> Option<Self> {
-        let shader_version = egui_glow::ShaderVersion::get(gl);
-
         unsafe {
-            let program = gl.create_program().expect("Cannot create program");
-
-            if !shader_version.is_new_shader_interface() {
-                log::warn!("Custom 3D painting hasn't been ported to {shader_version:?}");
-                return None;
-            }
-
-            let (vertex_shader_source, fragment_shader_source) = (
-                r#"
-                    const vec2 verts[3] = vec2[3](
-                        vec2(0.0, 1.0),
-                        vec2(-1.0, -1.0),
-                        vec2(1.0, -1.0)
-                    );
-                    const vec4 colors[3] = vec4[3](
-                        vec4(1.0, 0.0, 0.0, 1.0),
-                        vec4(0.0, 1.0, 0.0, 1.0),
-                        vec4(0.0, 0.0, 1.0, 1.0)
-                    );
-                    out vec4 v_color;
-                    uniform float u_angle;
-                    void main() {
-                        v_color = colors[gl_VertexID];
-                        gl_Position = vec4(verts[gl_VertexID], 0.0, 1.0);
-                        gl_Position.x *= cos(u_angle);
-                    }
-                "#,
-                r#"
-                    precision mediump float;
-                    in vec4 v_color;
-                    out vec4 out_color;
-                    void main() {
-                        out_color = v_color;
-                    }
-                "#,
+            let program = create_program(
+                gl,
+                &[
+                    (gl::VERTEX_SHADER, include_str!("shaders/phosphor.vert")),
+                    (gl::FRAGMENT_SHADER, include_str!("shaders/phosphor.frag")),
+                ],
             );
-
-            let shader_sources = [
-                (gl::VERTEX_SHADER, vertex_shader_source),
-                (gl::FRAGMENT_SHADER, fragment_shader_source),
-            ];
-
-            let shaders: Vec<_> = shader_sources
-                .iter()
-                .map(|(shader_type, shader_source)| {
-                    let shader = gl
-                        .create_shader(*shader_type)
-                        .expect("Cannot create shader");
-                    gl.shader_source(
-                        shader,
-                        &format!(
-                            "{}\n{}",
-                            shader_version.version_declaration(),
-                            shader_source
-                        ),
-                    );
-                    gl.compile_shader(shader);
-                    assert!(
-                        gl.get_shader_compile_status(shader),
-                        "Failed to compile custom_3d_glow {shader_type}: {}",
-                        gl.get_shader_info_log(shader)
-                    );
-
-                    gl.attach_shader(program, shader);
-                    shader
-                })
-                .collect();
-
-            gl.link_program(program);
-            assert!(
-                gl.get_program_link_status(program),
-                "{}",
-                gl.get_program_info_log(program)
-            );
-
-            for shader in shaders {
-                gl.detach_shader(program, shader);
-                gl.delete_shader(shader);
-            }
 
             let vertex_array = gl
                 .create_vertex_array()
@@ -415,7 +271,6 @@ impl PhosphorBuffer {
             gl.draw_buffers(&[gl::COLOR_ATTACHMENT0]);
         }
 
-        
         unsafe {
             if gl.check_framebuffer_status(gl::FRAMEBUFFER) != gl::FRAMEBUFFER_COMPLETE as u32 {
                 panic!("Framebuffer creation failed");
@@ -426,5 +281,52 @@ impl PhosphorBuffer {
             framebuffer,
             texture,
         }
+    }
+}
+
+fn create_program(gl: &gl::Context, shader_sources: &[(u32, &str)]) -> gl::NativeProgram {
+    unsafe {
+        let program = gl.create_program().expect("Cannot create program");
+        let shader_version = egui_glow::ShaderVersion::get(gl);
+
+        let shaders: Vec<_> = shader_sources
+            .iter()
+            .map(|(shader_type, shader_source)| {
+                let shader = gl
+                    .create_shader(*shader_type)
+                    .expect("Cannot create shader");
+                gl.shader_source(
+                    shader,
+                    &format!(
+                        "{}\n{}",
+                        shader_version.version_declaration(),
+                        shader_source
+                    ),
+                );
+                gl.compile_shader(shader);
+                assert!(
+                    gl.get_shader_compile_status(shader),
+                    "Failed to compile custom_3d_glow {shader_type}: {}",
+                    gl.get_shader_info_log(shader)
+                );
+
+                gl.attach_shader(program, shader);
+                shader
+            })
+            .collect();
+
+        gl.link_program(program);
+        assert!(
+            gl.get_program_link_status(program),
+            "{}",
+            gl.get_program_info_log(program)
+        );
+
+        for shader in shaders {
+            gl.detach_shader(program, shader);
+            gl.delete_shader(shader);
+        }
+
+        program
     }
 }
