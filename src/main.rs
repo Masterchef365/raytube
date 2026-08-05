@@ -253,12 +253,12 @@ impl PhosphorDisplay {
             let front_buffer = PhosphorBuffer::new(gl, width, height);
             let back_buffer = PhosphorBuffer::new(gl, width, height);
 
-            Some(Self {
+            Self {
                 front_buffer,
                 back_buffer,
                 program,
                 vertex_array,
-            })
+            }
         }
     }
 }
