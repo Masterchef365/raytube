@@ -268,6 +268,8 @@ impl EguiGlProgram {
                 gl.get_uniform_location(self.program, "height").as_ref(),
                 viewport_px.height_px as f32,
             );
+            gl.active_texture(gl::TEXTURE0);
+            gl.bind_texture(gl::TEXTURE_2D, Some(self.disp.front_buffer.texture));
 
             // Bind framebuffer
             gl.bind_framebuffer(gl::FRAMEBUFFER, None);
@@ -307,12 +309,12 @@ impl PhosphorBuffer {
             gl.tex_image_2d(
                 gl::TEXTURE_2D,
                 0,
-                gl::RGBA32F as _,
+                gl::RGB as _,
                 width,
                 height,
                 0,
                 gl::RGB,
-                gl::FLOAT,
+                gl::UNSIGNED_BYTE,
                 gl::PixelUnpackData::Slice(None),
             );
             gl.tex_parameter_i32(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as _);

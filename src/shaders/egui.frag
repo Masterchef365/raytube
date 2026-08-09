@@ -3,7 +3,10 @@ precision highp float;
 out vec4 out_color;
 in vec2 uv;
 
+uniform sampler2D phosphor;
+
 void main() {
-    out_color = vec4(0, uv, 1);
+    vec3 color = texture(phosphor, uv).rgb;
+    out_color = vec4(color, 1);
 }
 
