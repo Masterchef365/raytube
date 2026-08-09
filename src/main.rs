@@ -77,7 +77,7 @@ fn main() {
 
 pub struct TemplateApp {
     pub save_data: SaveData,
-    rotating_triangle: Arc<Mutex<EguiGlProgram>>,
+    rendering: Arc<Mutex<EguiGlProgram>>,
     angle: f32,
 }
 
@@ -100,7 +100,7 @@ impl TemplateApp {
         let gl = cc.gl.as_ref().unwrap();
 
         Self {
-            rotating_triangle: Arc::new(Mutex::new(EguiGlProgram::new(gl, 1024, 1024).unwrap())),
+            rendering: Arc::new(Mutex::new(EguiGlProgram::new(gl, 1024, 1024).unwrap())),
             angle: 0.0,
             save_data,
         }
@@ -114,10 +114,10 @@ impl TemplateApp {
 
         // Clone locals so we can move them into the paint callback:
         let angle = self.angle;
-        let rotating_triangle = self.rotating_triangle.clone();
+        let rendering = self.rendering.clone();
 
         let cb = egui_glow::CallbackFn::new(move |_info, painter| {
-            rotating_triangle.lock().unwrap().paint(painter.gl(), angle);
+            rendering.lock().unwrap().paint(painter.gl(), angle);
         });
 
         let callback = egui::PaintCallback {
@@ -143,7 +143,7 @@ impl eframe::App for TemplateApp {
     }
 
     fn on_exit(&mut self, gl: Option<&gl::Context>) {
-        self.rotating_triangle.lock().unwrap().destroy(gl.unwrap());
+        self.rendering.lock().unwrap().destroy(gl.unwrap());
     }
 }
 
@@ -158,6 +158,8 @@ struct PhosphorDisplay {
     vertex_array: gl::VertexArray,
     front_buffer: PhosphorBuffer,
     back_buffer: PhosphorBuffer,
+    width: i32,
+    height: i32,
 }
 
 struct PhosphorBuffer {
@@ -185,10 +187,31 @@ impl PhosphorDisplay {
         };
 
         Self {
+            width: width,
+            height: height,
             front_buffer,
             back_buffer,
             program,
             vertex_array,
+        }
+    }
+
+    fn paint(&mut self, gl: &gl::Context, angle: f32) {
+        use gl::HasContext as _;
+        unsafe {
+            gl.use_program(Some(self.program));
+            gl.uniform_1_f32(
+                gl.get_uniform_location(self.program, "u_angle").as_ref(),
+                angle,
+            );
+            gl.bind_vertex_array(Some(self.vertex_array));
+
+            // Bind framebuffer
+            gl.bind_framebuffer(gl::FRAMEBUFFER, Some(self.front_buffer.framebuffer));
+            gl.viewport(0, 0, self.width, self.height);
+
+            gl.draw_arrays(gl::TRIANGLES, 0, 3);
+            std::mem::swap(&mut self.front_buffer, &mut self.back_buffer);
         }
     }
 }
@@ -227,16 +250,11 @@ impl EguiGlProgram {
         }
     }
 
-    fn paint(&self, gl: &gl::Context, angle: f32) {
+    fn paint(&mut self, gl: &gl::Context, angle: f32) {
         use gl::HasContext as _;
         unsafe {
+            self.disp.paint(gl, angle);
             gl.use_program(Some(self.program));
-            gl.uniform_1_f32(
-                gl.get_uniform_location(self.program, "u_angle").as_ref(),
-                angle,
-            );
-            gl.bind_vertex_array(Some(self.vertex_array));
-            gl.draw_arrays(gl::TRIANGLES, 0, 3);
         }
     }
 }
@@ -282,6 +300,8 @@ impl PhosphorBuffer {
             texture,
         }
     }
+
+    
 }
 
 fn create_program(gl: &gl::Context, shader_sources: &[(u32, &str)]) -> gl::NativeProgram {
