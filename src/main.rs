@@ -1,5 +1,6 @@
 use eframe::egui_glow;
 use eframe::glow as gl;
+use egui::PaintCallbackInfo;
 use gl::HasContext;
 use std::sync::{Arc, Mutex};
 
@@ -116,8 +117,8 @@ impl TemplateApp {
         let angle = self.angle;
         let rendering = self.rendering.clone();
 
-        let cb = egui_glow::CallbackFn::new(move |_info, painter| {
-            rendering.lock().unwrap().paint(painter.gl(), angle);
+        let cb = egui_glow::CallbackFn::new(move |info, painter| {
+            rendering.lock().unwrap().paint(info, painter.gl(), angle);
         });
 
         let callback = egui::PaintCallback {
@@ -250,11 +251,40 @@ impl EguiGlProgram {
         }
     }
 
-    fn paint(&mut self, gl: &gl::Context, angle: f32) {
+    fn paint(&mut self, info: PaintCallbackInfo, gl: &gl::Context, angle: f32) {
         use gl::HasContext as _;
         unsafe {
             self.disp.paint(gl, angle);
             gl.use_program(Some(self.program));
+            gl.uniform_1_f32(
+                gl.get_uniform_location(self.program, "u_angle").as_ref(),
+                angle,
+            );
+            gl.bind_vertex_array(Some(self.vertex_array));
+
+            // Bind framebuffer
+            gl.bind_framebuffer(gl::FRAMEBUFFER, None);
+
+
+            // Fix the viewport config
+            let viewport_px = info.viewport_in_pixels();
+            gl.viewport(
+                viewport_px.left_px,
+                viewport_px.from_bottom_px,
+                viewport_px.width_px,
+                viewport_px.height_px,
+            );
+
+            let clip_rect = info.clip_rect_in_pixels();
+            gl.scissor(
+                clip_rect.left_px,
+                clip_rect.from_bottom_px,
+                clip_rect.width_px,
+                clip_rect.height_px,
+            );
+
+            gl.draw_arrays(gl::TRIANGLES, 0, 3);
+
         }
     }
 }
@@ -304,6 +334,7 @@ impl PhosphorBuffer {
     
 }
 
+#[track_caller]
 fn create_program(gl: &gl::Context, shader_sources: &[(u32, &str)]) -> gl::NativeProgram {
     unsafe {
         let program = gl.create_program().expect("Cannot create program");
