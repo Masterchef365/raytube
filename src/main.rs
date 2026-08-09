@@ -224,8 +224,8 @@ impl EguiGlProgram {
             let program = create_program(
                 gl,
                 &[
-                    (gl::VERTEX_SHADER, include_str!("shaders/phosphor.vert")),
-                    (gl::FRAGMENT_SHADER, include_str!("shaders/phosphor.frag")),
+                    (gl::VERTEX_SHADER, include_str!("shaders/egui.vert")),
+                    (gl::FRAGMENT_SHADER, include_str!("shaders/egui.frag")),
                 ],
             );
 
@@ -255,16 +255,22 @@ impl EguiGlProgram {
         use gl::HasContext as _;
         unsafe {
             self.disp.paint(gl, angle);
+
             gl.use_program(Some(self.program));
+
+            // Set variables
+            let viewport_px = info.viewport_in_pixels();
             gl.uniform_1_f32(
-                gl.get_uniform_location(self.program, "u_angle").as_ref(),
-                angle,
+                gl.get_uniform_location(self.program, "width").as_ref(),
+                viewport_px.width_px as f32,
             );
-            gl.bind_vertex_array(Some(self.vertex_array));
+            gl.uniform_1_f32(
+                gl.get_uniform_location(self.program, "height").as_ref(),
+                viewport_px.height_px as f32,
+            );
 
             // Bind framebuffer
             gl.bind_framebuffer(gl::FRAMEBUFFER, None);
-
 
             // Fix the viewport config
             let viewport_px = info.viewport_in_pixels();
@@ -283,6 +289,7 @@ impl EguiGlProgram {
                 clip_rect.height_px,
             );
 
+            gl.bind_vertex_array(Some(self.vertex_array));
             gl.draw_arrays(gl::TRIANGLES, 0, 3);
 
         }
