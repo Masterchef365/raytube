@@ -204,8 +204,8 @@ impl PhosphorDisplay {
             gl.bind_framebuffer(gl::FRAMEBUFFER, Some(self.front_buffer.framebuffer));
             gl.viewport(0, 0, self.width, self.height);
 
-            // Clear framebuffer
-            gl.clear(gl::COLOR);
+            gl.clear_color(0.0, 0.0, 0.0, 0.0);
+            gl.clear(gl::COLOR_BUFFER_BIT);
 
             // Draw triangle
             gl.use_program(Some(self.program));
