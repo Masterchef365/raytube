@@ -136,6 +136,8 @@ impl eframe::App for TemplateApp {
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        ui.ctx().request_repaint();
+
         egui::CentralPanel::default().show(ui, |ui| {
             egui::Frame::canvas(ui.style()).show(ui, |ui| {
                 self.custom_painting(ui);
@@ -155,10 +157,15 @@ struct EguiGlProgram {
 }
 
 struct PhosphorDisplay {
-    program: gl::Program,
-    vertex_array: gl::VertexArray,
+    triangle_program: gl::Program,
+    triangle_vertex_array: gl::VertexArray,
+
+    back_buffer_program: gl::Program,
+    back_buffer_vertex_array: gl::VertexArray,
+
     front_buffer: PhosphorBuffer,
     back_buffer: PhosphorBuffer,
+
     width: i32,
     height: i32,
 }
@@ -171,7 +178,7 @@ struct PhosphorBuffer {
 #[expect(unsafe_code)] // we need unsafe code to use gl
 impl PhosphorDisplay {
     fn new(gl: &gl::Context, width: i32, height: i32) -> Self {
-        let program = create_program(
+        let triangle_program = create_program(
             gl,
             &[
                 (gl::VERTEX_SHADER, include_str!("shaders/phosphor.vert")),
@@ -179,10 +186,24 @@ impl PhosphorDisplay {
             ],
         );
 
+        let back_buffer_program = create_program(
+            gl,
+            &[
+                (gl::VERTEX_SHADER, include_str!("shaders/dim_copy.vert")),
+                (gl::FRAGMENT_SHADER, include_str!("shaders/dim_copy.frag")),
+            ],
+        );
+
+
         let front_buffer = PhosphorBuffer::new(gl, width, height);
         let back_buffer = PhosphorBuffer::new(gl, width, height);
 
-        let vertex_array = unsafe {
+        let triangle_vertex_array = unsafe {
+            gl.create_vertex_array()
+                .expect("Cannot create vertex array")
+        };
+
+        let back_buffer_vertex_array = unsafe {
             gl.create_vertex_array()
                 .expect("Cannot create vertex array")
         };
@@ -192,30 +213,44 @@ impl PhosphorDisplay {
             height: height,
             front_buffer,
             back_buffer,
-            program,
-            vertex_array,
+            back_buffer_program,
+            triangle_program,
+            triangle_vertex_array,
+            back_buffer_vertex_array,
         }
     }
 
-    fn paint(&mut self, gl: &gl::Context, angle: f32) {
+    fn paint(&mut self, gl: &gl::Context, angle: f32, intensity: f32) {
         use gl::HasContext as _;
         unsafe {
             // Bind front framebuffer for writing
             gl.bind_framebuffer(gl::FRAMEBUFFER, Some(self.front_buffer.framebuffer));
             gl.viewport(0, 0, self.width, self.height);
 
-            gl.clear_color(0.0, 0.0, 0.0, 0.0);
+            // Clear it
+            gl.clear_color(0.0, 0.0, 0.0, 1.0);
             gl.clear(gl::COLOR_BUFFER_BIT);
 
-            // Draw triangle
-            gl.use_program(Some(self.program));
+            // Draw back buffer
+            gl.use_program(Some(self.back_buffer_program));
             gl.uniform_1_f32(
-                gl.get_uniform_location(self.program, "u_angle").as_ref(),
+                gl.get_uniform_location(self.back_buffer_program, "intensity").as_ref(),
+                intensity,
+            );
+            gl.active_texture(gl::TEXTURE0);
+            gl.bind_texture(gl::TEXTURE_2D, Some(self.back_buffer.texture));
+            gl.bind_vertex_array(Some(self.back_buffer_vertex_array));
+            gl.draw_arrays(gl::TRIANGLES, 0, 3);
+
+            // Draw triangle
+            gl.use_program(Some(self.triangle_program));
+            gl.uniform_1_f32(
+                gl.get_uniform_location(self.triangle_program, "u_angle").as_ref(),
                 angle,
             );
-            gl.bind_vertex_array(Some(self.vertex_array));
-
+            gl.bind_vertex_array(Some(self.triangle_vertex_array));
             gl.draw_arrays(gl::TRIANGLES, 0, 3);
+
             std::mem::swap(&mut self.front_buffer, &mut self.back_buffer);
         }
     }
@@ -259,7 +294,7 @@ impl EguiGlProgram {
         use gl::HasContext as _;
         unsafe {
             // Do internal painting
-            self.disp.paint(gl, angle);
+            self.disp.paint(gl, angle, 0.99);
 
             // Bind main framebuffer
             gl.bind_framebuffer(gl::FRAMEBUFFER, None);
