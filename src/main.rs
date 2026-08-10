@@ -255,6 +255,12 @@ impl PhosphorDisplay {
                     .as_ref(),
                 background_intensity,
             );
+            gl.uniform_1_f32(
+                gl.get_uniform_location(self.phosphor_program, "saturation_point")
+                    .as_ref(),
+                phosphor_settings.saturation_point,
+            );
+
             gl.active_texture(gl::TEXTURE0);
             gl.bind_texture(gl::TEXTURE_2D, Some(self.back_buffer.texture));
             gl.bind_vertex_array(Some(self.back_buffer_vertex_array));
@@ -466,10 +472,11 @@ fn create_program(gl: &gl::Context, shader_sources: &[(u32, &str)]) -> gl::Progr
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct PhosphorSettings {
     pub decay_rate: f32,
+    pub saturation_point: f32,
 }
 
 impl Default for PhosphorSettings {
     fn default() -> Self {
-        Self { decay_rate: 1.0 }
+        Self { decay_rate: 1.0, saturation_point: 100.0 }
     }
 }
