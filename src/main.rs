@@ -157,10 +157,10 @@ struct EguiGlProgram {
 }
 
 struct PhosphorDisplay {
-    triangle_program: gl::Program,
-    triangle_vertex_array: gl::VertexArray,
+    beam_program: gl::Program,
+    beam_vertex_array: gl::VertexArray,
 
-    back_buffer_program: gl::Program,
+    phosphor_program: gl::Program,
     back_buffer_vertex_array: gl::VertexArray,
 
     front_buffer: PhosphorBuffer,
@@ -178,7 +178,15 @@ struct PhosphorBuffer {
 #[expect(unsafe_code)] // we need unsafe code to use gl
 impl PhosphorDisplay {
     fn new(gl: &gl::Context, width: i32, height: i32) -> Self {
-        let triangle_program = create_program(
+        let beam_program = create_program(
+            gl,
+            &[
+                (gl::VERTEX_SHADER, include_str!("shaders/beam.vert")),
+                (gl::FRAGMENT_SHADER, include_str!("shaders/beam.frag")),
+            ],
+        );
+
+        let phosphor_program = create_program(
             gl,
             &[
                 (gl::VERTEX_SHADER, include_str!("shaders/phosphor.vert")),
@@ -186,19 +194,11 @@ impl PhosphorDisplay {
             ],
         );
 
-        let back_buffer_program = create_program(
-            gl,
-            &[
-                (gl::VERTEX_SHADER, include_str!("shaders/dim_copy.vert")),
-                (gl::FRAGMENT_SHADER, include_str!("shaders/dim_copy.frag")),
-            ],
-        );
-
 
         let front_buffer = PhosphorBuffer::new(gl, width, height);
         let back_buffer = PhosphorBuffer::new(gl, width, height);
 
-        let triangle_vertex_array = unsafe {
+        let beam_vertex_array = unsafe {
             gl.create_vertex_array()
                 .expect("Cannot create vertex array")
         };
@@ -213,9 +213,9 @@ impl PhosphorDisplay {
             height: height,
             front_buffer,
             back_buffer,
-            back_buffer_program,
-            triangle_program,
-            triangle_vertex_array,
+            phosphor_program,
+            beam_program: beam_program,
+            beam_vertex_array,
             back_buffer_vertex_array,
         }
     }
@@ -239,13 +239,13 @@ impl PhosphorDisplay {
             );
 
             // Clear it
-            gl.clear_color(0.0, 0.0, 0.0, 0.0);
+            gl.clear_color(0.0, 0.0, 0.0, 1.0);
             gl.clear(gl::COLOR_BUFFER_BIT);
 
             // Draw back buffer
-            gl.use_program(Some(self.back_buffer_program));
+            gl.use_program(Some(self.phosphor_program));
             gl.uniform_1_f32(
-                gl.get_uniform_location(self.back_buffer_program, "intensity").as_ref(),
+                gl.get_uniform_location(self.phosphor_program, "intensity").as_ref(),
                 intensity,
             );
             gl.active_texture(gl::TEXTURE0);
@@ -254,16 +254,15 @@ impl PhosphorDisplay {
             gl.draw_arrays(gl::TRIANGLES, 0, 3);
 
             // Draw triangle
-            gl.use_program(Some(self.triangle_program));
+            gl.use_program(Some(self.beam_program));
             gl.uniform_1_f32(
-                gl.get_uniform_location(self.triangle_program, "u_angle").as_ref(),
+                gl.get_uniform_location(self.beam_program, "u_angle").as_ref(),
                 angle,
             );
-            gl.bind_vertex_array(Some(self.triangle_vertex_array));
+            gl.bind_vertex_array(Some(self.beam_vertex_array));
             gl.draw_arrays(gl::TRIANGLES, 0, 3);
 
             std::mem::swap(&mut self.front_buffer, &mut self.back_buffer);
-
 
             // Bind main framebuffer
             gl.bind_framebuffer(gl::FRAMEBUFFER, None);
