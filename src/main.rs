@@ -37,7 +37,8 @@ fn main() {
     // Redirect `log` message to `console.log` and friends:
     eframe::WebLogger::init(log::LevelFilter::Debug).ok();
 
-    let web_options = eframe::WebOptions::default();
+    let mut web_options = eframe::WebOptions::default();
+    web_options.webgl_context_option = eframe::WebGlContextOption::WebGl2;
 
     wasm_bindgen_futures::spawn_local(async {
         let document = web_sys::window()
@@ -101,7 +102,7 @@ impl TemplateApp {
         let gl = cc.gl.as_ref().unwrap();
 
         Self {
-            rendering: Arc::new(Mutex::new(EguiGlProgram::new(gl, 1024, 1024).unwrap())),
+            rendering: Arc::new(Mutex::new(EguiGlProgram::new(gl, 512, 512).unwrap())),
             angle: 0.0,
             save_data,
         }
@@ -313,7 +314,7 @@ impl EguiGlProgram {
             gl.blend_func(gl::SRC_ALPHA, gl::ONE);
 
             // Do internal painting
-            self.disp.paint(gl, angle, 0.9);
+            self.disp.paint(gl, angle, 0.99);
 
             // Set variables
             gl.use_program(Some(self.program));
@@ -364,12 +365,12 @@ impl PhosphorBuffer {
             gl.tex_image_2d(
                 gl::TEXTURE_2D,
                 0,
-                gl::RGBA32F as _,
+                gl::RGBA as _,
                 width,
                 height,
                 0,
                 gl::RGBA,
-                gl::FLOAT,
+                gl::UNSIGNED_BYTE,
                 gl::PixelUnpackData::Slice(None),
             );
             gl.tex_parameter_i32(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as _);
