@@ -8,10 +8,10 @@ uniform float intensity;
 uniform float saturation_point;
 
 void main() {
-    vec3 color = texture(back_buffer, uv).rgb;
+    float hysteresis = texture(back_buffer, uv).r;
 
     // Clip the color, modelling the tendency for electrons to stick and then repel others
-    color = min(color, vec3(saturation_point));
+    hysteresis = min(hysteresis, saturation_point);
 
-    out_color = vec4(color * intensity, 1);
+    out_color = vec4(vec3(hysteresis * intensity), 1);
 }
