@@ -225,10 +225,21 @@ impl PhosphorDisplay {
         unsafe {
             // Bind front framebuffer for writing
             gl.bind_framebuffer(gl::FRAMEBUFFER, Some(self.front_buffer.framebuffer));
-            gl.viewport(0, 0, self.width, self.height);
+            gl.viewport(
+                0,
+                0,
+                self.width,
+                self.height,
+            );
+            gl.scissor(
+                0,
+                0,
+                self.width,
+                self.height,
+            );
 
             // Clear it
-            gl.clear_color(0.0, 0.0, 0.0, 1.0);
+            gl.clear_color(0.0, 0.0, 0.0, 0.0);
             gl.clear(gl::COLOR_BUFFER_BIT);
 
             // Draw back buffer
@@ -252,6 +263,10 @@ impl PhosphorDisplay {
             gl.draw_arrays(gl::TRIANGLES, 0, 3);
 
             std::mem::swap(&mut self.front_buffer, &mut self.back_buffer);
+
+
+            // Bind main framebuffer
+            gl.bind_framebuffer(gl::FRAMEBUFFER, None);
         }
     }
 }
@@ -296,12 +311,8 @@ impl EguiGlProgram {
             // Do internal painting
             self.disp.paint(gl, angle, 0.99);
 
-            // Bind main framebuffer
-            gl.bind_framebuffer(gl::FRAMEBUFFER, None);
-
-            gl.use_program(Some(self.program));
-
             // Set variables
+            gl.use_program(Some(self.program));
             let viewport_px = info.viewport_in_pixels();
             gl.uniform_1_f32(
                 gl.get_uniform_location(self.program, "width").as_ref(),
@@ -366,6 +377,10 @@ impl PhosphorBuffer {
             gl.bind_framebuffer(gl::FRAMEBUFFER, Some(framebuffer));
             gl.framebuffer_texture(gl::FRAMEBUFFER, gl::COLOR_ATTACHMENT0, Some(texture), 0);
             gl.draw_buffers(&[gl::COLOR_ATTACHMENT0]);
+
+            // Clear it
+            gl.clear_color(0.0, 0.0, 0.0, 1.0);
+            gl.clear(gl::COLOR_BUFFER_BIT);
         }
 
         unsafe {
