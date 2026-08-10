@@ -1,11 +1,9 @@
+use eframe::egui;
 use eframe::egui_glow;
 use eframe::glow as gl;
 use egui::PaintCallbackInfo;
 use gl::HasContext;
 use std::sync::{Arc, Mutex};
-use eframe::egui;
-
-use egui::DragValue;
 
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
@@ -126,7 +124,10 @@ impl TemplateApp {
         let rendering = self.rendering.clone();
 
         let cb = egui_glow::CallbackFn::new(move |info, painter| {
-            rendering.lock().unwrap().paint(info, painter.gl(), angle, dt as f32);
+            rendering
+                .lock()
+                .unwrap()
+                .paint(info, painter.gl(), angle, dt as f32);
         });
 
         let callback = egui::PaintCallback {
@@ -162,7 +163,6 @@ struct EguiGlProgram {
     program: gl::Program,
     vertex_array: gl::VertexArray,
     disp: PhosphorDisplay,
-    last_time: f64,
 }
 
 struct PhosphorDisplay {
@@ -203,7 +203,6 @@ impl PhosphorDisplay {
             ],
         );
 
-
         let front_buffer = PhosphorBuffer::new(gl, width, height);
         let back_buffer = PhosphorBuffer::new(gl, width, height);
 
@@ -238,18 +237,8 @@ impl PhosphorDisplay {
         unsafe {
             // Bind front framebuffer for writing
             gl.bind_framebuffer(gl::FRAMEBUFFER, Some(self.front_buffer.framebuffer));
-            gl.viewport(
-                0,
-                0,
-                self.width,
-                self.height,
-            );
-            gl.scissor(
-                0,
-                0,
-                self.width,
-                self.height,
-            );
+            gl.viewport(0, 0, self.width, self.height);
+            gl.scissor(0, 0, self.width, self.height);
 
             // Blend mode
             gl.enable(gl::BLEND);
@@ -262,7 +251,8 @@ impl PhosphorDisplay {
             // Draw back buffer
             gl.use_program(Some(self.phosphor_program));
             gl.uniform_1_f32(
-                gl.get_uniform_location(self.phosphor_program, "intensity").as_ref(),
+                gl.get_uniform_location(self.phosphor_program, "intensity")
+                    .as_ref(),
                 background_intensity,
             );
             gl.active_texture(gl::TEXTURE0);
@@ -273,7 +263,8 @@ impl PhosphorDisplay {
             // Draw triangle
             gl.use_program(Some(self.beam_program));
             gl.uniform_1_f32(
-                gl.get_uniform_location(self.beam_program, "u_angle").as_ref(),
+                gl.get_uniform_location(self.beam_program, "u_angle")
+                    .as_ref(),
                 angle,
             );
             gl.bind_vertex_array(Some(self.beam_vertex_array));
@@ -309,7 +300,6 @@ impl EguiGlProgram {
                 disp,
                 program,
                 vertex_array,
-                last_time: 0.0,
             })
         }
     }
@@ -322,7 +312,7 @@ impl EguiGlProgram {
         }
     }
 
-    fn paint(&mut self, info: PaintCallbackInfo, gl: &gl::Context, angle: f32, dt: f32) {
+    fn paint(&mut self, info: PaintCallbackInfo, gl: &gl::Context, angle: f32, _dt: f32) {
         use gl::HasContext as _;
 
         unsafe {
@@ -367,7 +357,6 @@ impl EguiGlProgram {
 
             gl.bind_vertex_array(Some(self.vertex_array));
             gl.draw_arrays(gl::TRIANGLES, 0, 3);
-
         }
     }
 }
@@ -398,7 +387,13 @@ impl PhosphorBuffer {
         // Bind to framebuffer
         unsafe {
             gl.bind_framebuffer(gl::FRAMEBUFFER, Some(framebuffer));
-            gl.framebuffer_texture_2d(gl::FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, Some(texture), 0);
+            gl.framebuffer_texture_2d(
+                gl::FRAMEBUFFER,
+                gl::COLOR_ATTACHMENT0,
+                gl::TEXTURE_2D,
+                Some(texture),
+                0,
+            );
             gl.draw_buffers(&[gl::COLOR_ATTACHMENT0]);
 
             // Clear it
@@ -417,8 +412,6 @@ impl PhosphorBuffer {
             texture,
         }
     }
-
-    
 }
 
 #[track_caller]
