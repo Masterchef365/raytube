@@ -82,6 +82,7 @@ pub struct TemplateApp {
     pub save_data: SaveData,
     rendering: Arc<Mutex<EguiGlProgram>>,
     angle: f32,
+    time: f64,
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -104,12 +105,17 @@ impl TemplateApp {
 
         Self {
             rendering: Arc::new(Mutex::new(EguiGlProgram::new(gl, 512, 512).unwrap())),
+            time: 0.0,
             angle: 0.0,
             save_data,
         }
     }
 
     fn custom_painting(&mut self, ui: &mut egui::Ui) {
+        let time = ui.time();
+        let dt = self.time - time;
+        self.time = time;
+
         let (rect, response) =
             ui.allocate_exact_size(egui::Vec2::splat(300.0), egui::Sense::drag());
 
@@ -120,7 +126,7 @@ impl TemplateApp {
         let rendering = self.rendering.clone();
 
         let cb = egui_glow::CallbackFn::new(move |info, painter| {
-            rendering.lock().unwrap().paint(info, painter.gl(), angle);
+            rendering.lock().unwrap().paint(info, painter.gl(), angle, dt as f32);
         });
 
         let callback = egui::PaintCallback {
@@ -156,6 +162,7 @@ struct EguiGlProgram {
     program: gl::Program,
     vertex_array: gl::VertexArray,
     disp: PhosphorDisplay,
+    last_time: f64,
 }
 
 struct PhosphorDisplay {
@@ -222,8 +229,12 @@ impl PhosphorDisplay {
         }
     }
 
-    fn paint(&mut self, gl: &gl::Context, angle: f32, intensity: f32) {
+    fn paint(&mut self, gl: &gl::Context, angle: f32, dt: f32) {
         use gl::HasContext as _;
+
+        let decay_rate = 1.0e-1;
+        let background_intensity = 1.0 - decay_rate * dt;
+
         unsafe {
             // Bind front framebuffer for writing
             gl.bind_framebuffer(gl::FRAMEBUFFER, Some(self.front_buffer.framebuffer));
@@ -240,6 +251,10 @@ impl PhosphorDisplay {
                 self.height,
             );
 
+            // Blend mode
+            gl.enable(gl::BLEND);
+            gl.blend_func(gl::SRC_ALPHA, gl::ONE);
+
             // Clear it
             gl.clear_color(0.0, 0.0, 0.0, 1.0);
             gl.clear(gl::COLOR_BUFFER_BIT);
@@ -248,7 +263,7 @@ impl PhosphorDisplay {
             gl.use_program(Some(self.phosphor_program));
             gl.uniform_1_f32(
                 gl.get_uniform_location(self.phosphor_program, "intensity").as_ref(),
-                intensity,
+                background_intensity,
             );
             gl.active_texture(gl::TEXTURE0);
             gl.bind_texture(gl::TEXTURE_2D, Some(self.back_buffer.texture));
@@ -294,6 +309,7 @@ impl EguiGlProgram {
                 disp,
                 program,
                 vertex_array,
+                last_time: 0.0,
             })
         }
     }
@@ -306,8 +322,9 @@ impl EguiGlProgram {
         }
     }
 
-    fn paint(&mut self, info: PaintCallbackInfo, gl: &gl::Context, angle: f32) {
+    fn paint(&mut self, info: PaintCallbackInfo, gl: &gl::Context, angle: f32, dt: f32) {
         use gl::HasContext as _;
+
         unsafe {
             // Set blend mode
             gl.enable(gl::BLEND);
@@ -366,12 +383,12 @@ impl PhosphorBuffer {
             gl.tex_image_2d(
                 gl::TEXTURE_2D,
                 0,
-                gl::RGBA as _,
+                gl::RGBA32F as _,
                 width,
                 height,
                 0,
                 gl::RGBA,
-                gl::UNSIGNED_BYTE,
+                gl::FLOAT,
                 gl::PixelUnpackData::Slice(None),
             );
             gl.tex_parameter_i32(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as _);
