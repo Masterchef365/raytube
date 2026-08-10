@@ -1,4 +1,5 @@
 use eframe::egui;
+use eframe::egui::DragValue;
 use eframe::egui::Vec2;
 use eframe::egui_glow;
 use eframe::glow as gl;
@@ -86,7 +87,7 @@ pub struct TemplateApp {
 #[derive(serde::Deserialize, serde::Serialize, Default)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct SaveData {
-    phosphor_settings: PhosphorSettings,
+    display_settings: DisplaySettings,
 }
 
 impl TemplateApp {
@@ -97,11 +98,8 @@ impl TemplateApp {
             .unwrap_or_default();
         let gl = cc.gl.as_ref().unwrap();
 
-        // TODO: BEFORE RELEASE REMOVE THIS:
-        save_data = Default::default();
-
         Self {
-            rendering: Arc::new(Mutex::new(EguiGlProgram::new(gl, 512, 512).unwrap())),
+            rendering: Arc::new(Mutex::new(EguiGlProgram::new(gl, 1024, 1024).unwrap())),
             time: 0.0,
             save_data,
         }
@@ -118,17 +116,17 @@ impl TemplateApp {
         // Clone locals so we can move them into the paint callback:
         let rendering = self.rendering.clone();
 
-        let phosphor_settings = self.save_data.phosphor_settings.clone();
+        let display_settings = self.save_data.display_settings.clone();
 
         let cb = egui_glow::CallbackFn::new(move |info, painter| {
             let lines: Vec<_> = (0..99).map(|i| {
                 let f = time as f32 + i as f32 / 100.0;
-                Vec2::new(f.cos(), f.sin()) / 1.0
+                Vec2::new(f.cos(), f.sin()) * (f * 190.0).cos()
             }).collect();
             rendering
                 .lock()
                 .unwrap()
-                .paint(info, painter.gl(), &phosphor_settings, &lines, dt as f32);
+                .paint(info, painter.gl(), &display_settings, &lines, dt as f32);
         });
 
         let callback = egui::PaintCallback {
@@ -147,6 +145,23 @@ impl eframe::App for TemplateApp {
 
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         ui.ctx().request_repaint();
+
+        egui::Panel::left("cfg").show(ui, |ui| {
+            ui.strong("Phosphor");
+            ui.horizontal(|ui| {
+                ui.label("Intensity: ");
+                ui.add(DragValue::new(&mut self.save_data.display_settings.intensity));
+            });
+            ui.horizontal(|ui| {
+                ui.label("Memory time: ");
+                ui.add(DragValue::new(&mut self.save_data.display_settings.memory_time));
+            });
+            ui.horizontal(|ui| {
+                ui.label("Saturation pt.: ");
+                ui.add(DragValue::new(&mut self.save_data.display_settings.saturation_point));
+            });
+            ui.separator();
+        });
 
         egui::CentralPanel::default().show(ui, |ui| {
             egui::Frame::canvas(ui.style()).show(ui, |ui| {
@@ -235,10 +250,16 @@ impl PhosphorDisplay {
         }
     }
 
-    fn paint(&mut self, gl: &gl::Context, phosphor_settings: &PhosphorSettings, lines: &[Vec2], dt: f32) {
+    fn paint(&mut self, gl: &gl::Context, display_settings: &DisplaySettings, lines: &[Vec2], dt: f32) {
         use gl::HasContext as _;
 
-        let background_intensity = 1.0 - phosphor_settings.decay_rate * dt;
+        // amplitude = initial * background_intensity^(# of frames n)
+        // T = n * dt
+        // amplitude = initial * background_intensity^(T/dt)
+        // amplitude = initial * (background_intensity^(1/dt))^T
+        // const amplitude => background_intensity = k^dt => amplitude = initial * (k^T)
+
+        let background_intensity = display_settings.memory_time.powf(dt);
 
         unsafe {
             // Upload buffer
@@ -258,7 +279,7 @@ impl PhosphorDisplay {
             gl.clear_color(0.0, 0.0, 0.0, 1.0);
             gl.clear(gl::COLOR_BUFFER_BIT);
 
-            // Draw back buffer
+            // Draw back buffer (memory)
             gl.use_program(Some(self.phosphor_program));
             gl.uniform_1_f32(
                 gl.get_uniform_location(self.phosphor_program, "intensity")
@@ -268,7 +289,7 @@ impl PhosphorDisplay {
             gl.uniform_1_f32(
                 gl.get_uniform_location(self.phosphor_program, "saturation_point")
                     .as_ref(),
-                phosphor_settings.saturation_point,
+                display_settings.saturation_point,
             );
 
             gl.active_texture(gl::TEXTURE0);
@@ -279,6 +300,12 @@ impl PhosphorDisplay {
 
             // Draw lines
             gl.use_program(Some(self.beam_program));
+            gl.uniform_1_f32(
+                gl.get_uniform_location(self.beam_program, "intensity")
+                    .as_ref(),
+                display_settings.intensity,
+            );
+
             //gl.bind_vertex_array(Some(self.beam_vertex_array));
             gl.enable_vertex_attrib_array(0);
             gl.bind_buffer(gl::ARRAY_BUFFER, Some(self.beam_buffer));
@@ -328,7 +355,7 @@ impl EguiGlProgram {
         }
     }
 
-    fn paint(&mut self, info: PaintCallbackInfo, gl: &gl::Context, phosphor_settings: &PhosphorSettings, lines: &[Vec2], dt: f32) {
+    fn paint(&mut self, info: PaintCallbackInfo, gl: &gl::Context, display_settings: &DisplaySettings, lines: &[Vec2], dt: f32) {
         use gl::HasContext as _;
 
         unsafe {
@@ -338,7 +365,7 @@ impl EguiGlProgram {
             //gl.blend_func(gl::SRC_ALPHA, gl::ONE);
 
             // Do internal painting
-            self.disp.paint(gl, phosphor_settings, lines, dt);
+            self.disp.paint(gl, display_settings, lines, dt);
 
             // Set variables
             gl.use_program(Some(self.program));
@@ -396,8 +423,8 @@ impl PhosphorBuffer {
                 gl::FLOAT,
                 gl::PixelUnpackData::Slice(None),
             );
-            gl.tex_parameter_i32(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as _);
-            gl.tex_parameter_i32(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as _);
+            gl.tex_parameter_i32(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as _);
+            gl.tex_parameter_i32(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as _);
         }
 
         // Bind to framebuffer
@@ -480,13 +507,14 @@ fn create_program(gl: &gl::Context, shader_sources: &[(u32, &str)]) -> gl::Progr
 
 #[derive(serde::Deserialize, serde::Serialize, Clone)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
-pub struct PhosphorSettings {
-    pub decay_rate: f32,
+pub struct DisplaySettings {
+    pub memory_time: f32,
     pub saturation_point: f32,
+    pub intensity: f32,
 }
 
-impl Default for PhosphorSettings {
+impl Default for DisplaySettings {
     fn default() -> Self {
-        Self { decay_rate: 1.0, saturation_point: 100.0 }
+        Self { memory_time: 1e-10, saturation_point: 100.0, intensity: 1.0 }
     }
 }
