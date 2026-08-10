@@ -150,15 +150,15 @@ impl eframe::App for TemplateApp {
             ui.strong("Phosphor");
             ui.horizontal(|ui| {
                 ui.label("Intensity: ");
-                ui.add(DragValue::new(&mut self.save_data.display_settings.intensity));
+                ui.add(DragValue::new(&mut self.save_data.display_settings.intensity).speed(1e-3));
             });
             ui.horizontal(|ui| {
                 ui.label("Memory time: ");
-                ui.add(DragValue::new(&mut self.save_data.display_settings.memory_time));
+                ui.add(DragValue::new(&mut self.save_data.display_settings.memory_time).speed(1e-3));
             });
             ui.horizontal(|ui| {
                 ui.label("Saturation pt.: ");
-                ui.add(DragValue::new(&mut self.save_data.display_settings.saturation_point));
+                ui.add(DragValue::new(&mut self.save_data.display_settings.saturation_point).speed(1e-3));
             });
             ui.separator();
         });
