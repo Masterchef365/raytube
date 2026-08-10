@@ -171,8 +171,8 @@ struct PhosphorDisplay {
 }
 
 struct PhosphorBuffer {
-    framebuffer: gl::NativeFramebuffer,
-    texture: gl::NativeTexture,
+    framebuffer: gl::Framebuffer,
+    texture: gl::Texture,
 }
 
 #[expect(unsafe_code)] // we need unsafe code to use gl
@@ -307,8 +307,13 @@ impl EguiGlProgram {
     fn paint(&mut self, info: PaintCallbackInfo, gl: &gl::Context, angle: f32) {
         use gl::HasContext as _;
         unsafe {
+            // Set blend mode
+            gl.enable(gl::BLEND);
+            //gl.blend_func_separate(gl::SRC_ALPHA, gl::ONE, gl::ONE, gl::ONE_MINUS_SRC_ALPHA);
+            gl.blend_func(gl::SRC_ALPHA, gl::ONE);
+
             // Do internal painting
-            self.disp.paint(gl, angle, 0.99);
+            self.disp.paint(gl, angle, 0.9);
 
             // Set variables
             gl.use_program(Some(self.program));
@@ -359,12 +364,12 @@ impl PhosphorBuffer {
             gl.tex_image_2d(
                 gl::TEXTURE_2D,
                 0,
-                gl::RGBA as _,
+                gl::RGBA32F as _,
                 width,
                 height,
                 0,
                 gl::RGBA,
-                gl::UNSIGNED_BYTE,
+                gl::FLOAT,
                 gl::PixelUnpackData::Slice(None),
             );
             gl.tex_parameter_i32(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as _);
@@ -398,7 +403,7 @@ impl PhosphorBuffer {
 }
 
 #[track_caller]
-fn create_program(gl: &gl::Context, shader_sources: &[(u32, &str)]) -> gl::NativeProgram {
+fn create_program(gl: &gl::Context, shader_sources: &[(u32, &str)]) -> gl::Program {
     unsafe {
         let program = gl.create_program().expect("Cannot create program");
         let shader_version = egui_glow::ShaderVersion::get(gl);
