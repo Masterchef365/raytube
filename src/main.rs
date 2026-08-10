@@ -83,23 +83,22 @@ pub struct TemplateApp {
     time: f64,
 }
 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(serde::Deserialize, serde::Serialize, Default)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
-pub struct SaveData {}
-
-impl Default for SaveData {
-    fn default() -> Self {
-        Self {}
-    }
+pub struct SaveData {
+    phosphor_settings: PhosphorSettings,
 }
 
 impl TemplateApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        let save_data = cc
+        let mut save_data = cc
             .storage
             .and_then(|storage| eframe::get_value(storage, eframe::APP_KEY))
             .unwrap_or_default();
         let gl = cc.gl.as_ref().unwrap();
+
+        // TODO: BEFORE RELEASE REMOVE THIS:
+        save_data = Default::default();
 
         Self {
             rendering: Arc::new(Mutex::new(EguiGlProgram::new(gl, 512, 512).unwrap())),
@@ -111,7 +110,7 @@ impl TemplateApp {
 
     fn custom_painting(&mut self, ui: &mut egui::Ui) {
         let time = ui.time();
-        let dt = self.time - time;
+        let dt = time - self.time;
         self.time = time;
 
         let (rect, response) =
@@ -123,11 +122,13 @@ impl TemplateApp {
         let angle = self.angle;
         let rendering = self.rendering.clone();
 
+        let phosphor_settings = self.save_data.phosphor_settings.clone();
+
         let cb = egui_glow::CallbackFn::new(move |info, painter| {
             rendering
                 .lock()
                 .unwrap()
-                .paint(info, painter.gl(), angle, dt as f32);
+                .paint(info, painter.gl(), &phosphor_settings, angle, dt as f32);
         });
 
         let callback = egui::PaintCallback {
@@ -217,8 +218,8 @@ impl PhosphorDisplay {
         };
 
         Self {
-            width: width,
-            height: height,
+            width,
+            height,
             front_buffer,
             back_buffer,
             phosphor_program,
@@ -228,11 +229,10 @@ impl PhosphorDisplay {
         }
     }
 
-    fn paint(&mut self, gl: &gl::Context, angle: f32, dt: f32) {
+    fn paint(&mut self, gl: &gl::Context, phosphor_settings: &PhosphorSettings, angle: f32, dt: f32) {
         use gl::HasContext as _;
 
-        let decay_rate = 1.0e-1;
-        let background_intensity = 1.0 - decay_rate * dt;
+        let background_intensity = 1.0 - phosphor_settings.decay_rate * dt;
 
         unsafe {
             // Bind front framebuffer for writing
@@ -312,17 +312,17 @@ impl EguiGlProgram {
         }
     }
 
-    fn paint(&mut self, info: PaintCallbackInfo, gl: &gl::Context, angle: f32, _dt: f32) {
+    fn paint(&mut self, info: PaintCallbackInfo, gl: &gl::Context, phosphor_settings: &PhosphorSettings, angle: f32, dt: f32) {
         use gl::HasContext as _;
 
         unsafe {
             // Set blend mode
             gl.enable(gl::BLEND);
-            //gl.blend_func_separate(gl::SRC_ALPHA, gl::ONE, gl::ONE, gl::ONE_MINUS_SRC_ALPHA);
-            gl.blend_func(gl::SRC_ALPHA, gl::ONE);
+            gl.blend_func_separate(gl::SRC_ALPHA, gl::ONE, gl::ONE, gl::ONE_MINUS_SRC_ALPHA);
+            //gl.blend_func(gl::SRC_ALPHA, gl::ONE);
 
             // Do internal painting
-            self.disp.paint(gl, angle, 0.99);
+            self.disp.paint(gl, phosphor_settings, angle, dt);
 
             // Set variables
             gl.use_program(Some(self.program));
@@ -459,5 +459,17 @@ fn create_program(gl: &gl::Context, shader_sources: &[(u32, &str)]) -> gl::Progr
         }
 
         program
+    }
+}
+
+#[derive(serde::Deserialize, serde::Serialize, Clone)]
+#[serde(default)] // if we add new fields, give them default values when deserializing old state
+pub struct PhosphorSettings {
+    pub decay_rate: f32,
+}
+
+impl Default for PhosphorSettings {
+    fn default() -> Self {
+        Self { decay_rate: 1.0 }
     }
 }
