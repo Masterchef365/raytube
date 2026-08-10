@@ -1,4 +1,5 @@
 use eframe::egui;
+use eframe::egui::Vec2;
 use eframe::egui_glow;
 use eframe::glow as gl;
 use egui::PaintCallbackInfo;
@@ -79,7 +80,6 @@ fn main() {
 pub struct TemplateApp {
     pub save_data: SaveData,
     rendering: Arc<Mutex<EguiGlProgram>>,
-    angle: f32,
     time: f64,
 }
 
@@ -103,7 +103,6 @@ impl TemplateApp {
         Self {
             rendering: Arc::new(Mutex::new(EguiGlProgram::new(gl, 512, 512).unwrap())),
             time: 0.0,
-            angle: 0.0,
             save_data,
         }
     }
@@ -116,19 +115,20 @@ impl TemplateApp {
         let (rect, response) =
             ui.allocate_exact_size(egui::Vec2::splat(300.0), egui::Sense::drag());
 
-        self.angle += response.drag_motion().x * 0.01;
-
         // Clone locals so we can move them into the paint callback:
-        let angle = self.angle;
         let rendering = self.rendering.clone();
 
         let phosphor_settings = self.save_data.phosphor_settings.clone();
 
         let cb = egui_glow::CallbackFn::new(move |info, painter| {
+            let lines: Vec<_> = (0..99).map(|i| {
+                let f = time as f32 + i as f32 / 100.0;
+                Vec2::new(f.cos(), f.sin()) / 1.0
+            }).collect();
             rendering
                 .lock()
                 .unwrap()
-                .paint(info, painter.gl(), &phosphor_settings, angle, dt as f32);
+                .paint(info, painter.gl(), &phosphor_settings, &lines, dt as f32);
         });
 
         let callback = egui::PaintCallback {
@@ -169,6 +169,7 @@ struct EguiGlProgram {
 struct PhosphorDisplay {
     beam_program: gl::Program,
     beam_vertex_array: gl::VertexArray,
+    beam_buffer: gl::Buffer,
 
     phosphor_program: gl::Program,
     back_buffer_vertex_array: gl::VertexArray,
@@ -211,6 +212,10 @@ impl PhosphorDisplay {
             gl.create_vertex_array()
                 .expect("Cannot create vertex array")
         };
+        let beam_buffer = unsafe {
+            gl.create_buffer()
+                .expect("Cannot create vertex array buffer")
+        };
 
         let back_buffer_vertex_array = unsafe {
             gl.create_vertex_array()
@@ -223,18 +228,23 @@ impl PhosphorDisplay {
             front_buffer,
             back_buffer,
             phosphor_program,
-            beam_program: beam_program,
+            beam_program,
+            beam_buffer,
             beam_vertex_array,
             back_buffer_vertex_array,
         }
     }
 
-    fn paint(&mut self, gl: &gl::Context, phosphor_settings: &PhosphorSettings, angle: f32, dt: f32) {
+    fn paint(&mut self, gl: &gl::Context, phosphor_settings: &PhosphorSettings, lines: &[Vec2], dt: f32) {
         use gl::HasContext as _;
 
         let background_intensity = 1.0 - phosphor_settings.decay_rate * dt;
 
         unsafe {
+            // Upload buffer
+            gl.bind_buffer(gl::ARRAY_BUFFER, Some(self.beam_buffer));
+            gl.buffer_data_u8_slice(gl::ARRAY_BUFFER, bytemuck::cast_slice(lines), gl::DYNAMIC_DRAW);
+
             // Bind front framebuffer for writing
             gl.bind_framebuffer(gl::FRAMEBUFFER, Some(self.front_buffer.framebuffer));
             gl.viewport(0, 0, self.width, self.height);
@@ -263,18 +273,18 @@ impl PhosphorDisplay {
 
             gl.active_texture(gl::TEXTURE0);
             gl.bind_texture(gl::TEXTURE_2D, Some(self.back_buffer.texture));
+
             gl.bind_vertex_array(Some(self.back_buffer_vertex_array));
             gl.draw_arrays(gl::TRIANGLES, 0, 3);
 
-            // Draw triangle
+            // Draw lines
             gl.use_program(Some(self.beam_program));
-            gl.uniform_1_f32(
-                gl.get_uniform_location(self.beam_program, "u_angle")
-                    .as_ref(),
-                angle,
-            );
-            gl.bind_vertex_array(Some(self.beam_vertex_array));
-            gl.draw_arrays(gl::TRIANGLES, 0, 3);
+            //gl.bind_vertex_array(Some(self.beam_vertex_array));
+            gl.enable_vertex_attrib_array(0);
+            gl.bind_buffer(gl::ARRAY_BUFFER, Some(self.beam_buffer));
+            gl.vertex_attrib_pointer_f32(0, 2, gl::FLOAT, false, 0, 0);
+            gl.draw_arrays(gl::LINE_STRIP, 0, lines.len() as _);
+            gl.disable_vertex_attrib_array(0);
 
             std::mem::swap(&mut self.front_buffer, &mut self.back_buffer);
 
@@ -318,7 +328,7 @@ impl EguiGlProgram {
         }
     }
 
-    fn paint(&mut self, info: PaintCallbackInfo, gl: &gl::Context, phosphor_settings: &PhosphorSettings, angle: f32, dt: f32) {
+    fn paint(&mut self, info: PaintCallbackInfo, gl: &gl::Context, phosphor_settings: &PhosphorSettings, lines: &[Vec2], dt: f32) {
         use gl::HasContext as _;
 
         unsafe {
@@ -328,7 +338,7 @@ impl EguiGlProgram {
             //gl.blend_func(gl::SRC_ALPHA, gl::ONE);
 
             // Do internal painting
-            self.disp.paint(gl, phosphor_settings, angle, dt);
+            self.disp.paint(gl, phosphor_settings, lines, dt);
 
             // Set variables
             gl.use_program(Some(self.program));
