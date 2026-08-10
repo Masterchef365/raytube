@@ -3,6 +3,7 @@ use eframe::glow as gl;
 use egui::PaintCallbackInfo;
 use gl::HasContext;
 use std::sync::{Arc, Mutex};
+use eframe::egui;
 
 use egui::DragValue;
 
@@ -380,7 +381,7 @@ impl PhosphorBuffer {
         // Bind to framebuffer
         unsafe {
             gl.bind_framebuffer(gl::FRAMEBUFFER, Some(framebuffer));
-            gl.framebuffer_texture(gl::FRAMEBUFFER, gl::COLOR_ATTACHMENT0, Some(texture), 0);
+            gl.framebuffer_texture_2d(gl::FRAMEBUFFER, gl::COLOR_ATTACHMENT0, gl::TEXTURE_2D, Some(texture), 0);
             gl.draw_buffers(&[gl::COLOR_ATTACHMENT0]);
 
             // Clear it
