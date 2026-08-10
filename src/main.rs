@@ -200,16 +200,20 @@ impl PhosphorDisplay {
     fn paint(&mut self, gl: &gl::Context, angle: f32) {
         use gl::HasContext as _;
         unsafe {
+            // Bind front framebuffer for writing
+            gl.bind_framebuffer(gl::FRAMEBUFFER, Some(self.front_buffer.framebuffer));
+            gl.viewport(0, 0, self.width, self.height);
+
+            // Clear framebuffer
+            gl.clear(gl::COLOR);
+
+            // Draw triangle
             gl.use_program(Some(self.program));
             gl.uniform_1_f32(
                 gl.get_uniform_location(self.program, "u_angle").as_ref(),
                 angle,
             );
             gl.bind_vertex_array(Some(self.vertex_array));
-
-            // Bind framebuffer
-            gl.bind_framebuffer(gl::FRAMEBUFFER, Some(self.front_buffer.framebuffer));
-            gl.viewport(0, 0, self.width, self.height);
 
             gl.draw_arrays(gl::TRIANGLES, 0, 3);
             std::mem::swap(&mut self.front_buffer, &mut self.back_buffer);
@@ -254,7 +258,11 @@ impl EguiGlProgram {
     fn paint(&mut self, info: PaintCallbackInfo, gl: &gl::Context, angle: f32) {
         use gl::HasContext as _;
         unsafe {
+            // Do internal painting
             self.disp.paint(gl, angle);
+
+            // Bind main framebuffer
+            gl.bind_framebuffer(gl::FRAMEBUFFER, None);
 
             gl.use_program(Some(self.program));
 
@@ -269,10 +277,7 @@ impl EguiGlProgram {
                 viewport_px.height_px as f32,
             );
             gl.active_texture(gl::TEXTURE0);
-            gl.bind_texture(gl::TEXTURE_2D, Some(self.disp.front_buffer.texture));
-
-            // Bind framebuffer
-            gl.bind_framebuffer(gl::FRAMEBUFFER, None);
+            gl.bind_texture(gl::TEXTURE_2D, Some(self.disp.back_buffer.texture));
 
             // Fix the viewport config
             let viewport_px = info.viewport_in_pixels();
@@ -309,11 +314,11 @@ impl PhosphorBuffer {
             gl.tex_image_2d(
                 gl::TEXTURE_2D,
                 0,
-                gl::RGB as _,
+                gl::RGBA as _,
                 width,
                 height,
                 0,
-                gl::RGB,
+                gl::RGBA,
                 gl::UNSIGNED_BYTE,
                 gl::PixelUnpackData::Slice(None),
             );
