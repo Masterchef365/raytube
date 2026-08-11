@@ -153,8 +153,9 @@ impl TemplateApp {
         while let (Some(x), Some(y)) = (mic.next(), mic.next()) {
             let pos = (Vec2::new(x, y) * self.amplitude).to_pos2();
             let dist = last_pos.distance(pos);
-            let intensity = if dist < 1.0 { 1.0 } else { 1.0 / dist };
-            lines.push([pos.x * self.amplitude, pos.y * self.amplitude, intensity]);
+            let intensity = if dist == 0.0 { 1.0 } else { 1.0 / dist };
+            lines.push([last_pos.x, last_pos.y, intensity]);
+            lines.push([pos.x, pos.y, intensity]);
             last_pos = pos;
         }
 

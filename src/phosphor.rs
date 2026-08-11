@@ -130,7 +130,7 @@ impl PhosphorDisplay {
             gl.enable_vertex_attrib_array(0);
             gl.bind_buffer(gl::ARRAY_BUFFER, Some(self.beam_buffer));
             gl.vertex_attrib_pointer_f32(0, 3, gl::FLOAT, false, 0, 0);
-            gl.draw_arrays(gl::LINE_STRIP, 0, lines.len() as _);
+            gl.draw_arrays(gl::LINES, 0, lines.len() as _);
             gl.disable_vertex_attrib_array(0);
 
             std::mem::swap(&mut self.front_buffer, &mut self.back_buffer);
