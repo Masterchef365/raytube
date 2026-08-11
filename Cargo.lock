@@ -2683,12 +2683,24 @@ name = "raytube"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
- "eframe",
  "egui",
  "egui_glow",
  "env_logger",
  "getrandom 0.4.3",
  "log",
+ "serde",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
+name = "raytube-standalone"
+version = "0.1.0"
+dependencies = [
+ "eframe",
+ "env_logger",
+ "getrandom 0.4.3",
+ "raytube",
  "rodio",
  "serde",
  "wasm-bindgen-futures",

@@ -1,5 +1,5 @@
 [package]
-name = "raytube"
+name = "raytube-standalone"
 version = "0.1.0"
 authors = ["Emil Ernerfeldt <emil.ernerfeldt@gmail.com>"]
 edition = "2021"
@@ -10,13 +10,7 @@ all-features = true
 targets = ["x86_64-unknown-linux-gnu", "wasm32-unknown-unknown"]
 
 [dependencies]
-egui = "0.36"
-egui_glow = "0.36"
-log = "0.4"
 serde = { version = "1", features = ["derive"] }
-bytemuck = "1.25.2"
-
-[dev-dependencies]
 eframe = { version = "0.36", default-features = false, features = [
     "accesskit",     # Make egui compatible with screen readers. NOTE: adds a lot of dependencies.
     "default_fonts", # Embed the default egui fonts.
@@ -26,6 +20,7 @@ eframe = { version = "0.36", default-features = false, features = [
     "x11",
 ] }
 rodio = "0.22.2"
+raytube = { path = "./raytube" }
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
