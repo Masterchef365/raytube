@@ -270,9 +270,9 @@ pub struct DisplaySettings {
 impl Default for DisplaySettings {
     fn default() -> Self {
         Self {
-            memory_time: 1e-10,
+            memory_time: 1e-6,
             saturation_point: 100.0,
-            intensity: 1.0,
+            intensity: 0.1,
             paused: false,
         }
     }
