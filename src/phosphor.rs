@@ -1,11 +1,8 @@
-use eframe::egui;
-use eframe::egui::DragValue;
-use eframe::egui::Vec2;
-use eframe::egui_glow;
-use eframe::glow as gl;
-use egui::PaintCallbackInfo;
+use egui;
+use egui::Vec2;
+use egui_glow;
+use egui_glow::glow as gl;
 use gl::HasContext;
-use std::sync::{Arc, Mutex};
 
 const BEAM_TEXTURE_SIDE: usize = 128;
 pub const MAX_BEAM_SAMPLES: usize = BEAM_TEXTURE_SIDE.pow(2);

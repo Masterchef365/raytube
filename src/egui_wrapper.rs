@@ -1,12 +1,9 @@
 use crate::phosphor::{DisplaySettings, PhosphorDisplay};
-use eframe::egui;
-use eframe::egui::DragValue;
-use eframe::egui::Vec2;
-use eframe::egui_glow;
-use eframe::glow as gl;
+use egui;
+use egui::Vec2;
+use egui_glow::glow as gl;
 use egui::PaintCallbackInfo;
 use gl::HasContext;
-use std::sync::{Arc, Mutex};
 
 pub struct EguiGlProgram {
     program: gl::Program,
