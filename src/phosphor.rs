@@ -9,7 +9,6 @@ use std::sync::{Arc, Mutex};
 
 pub struct PhosphorDisplay {
     beam_program: gl::Program,
-    beam_vertex_array: gl::VertexArray,
     beam_buffer: gl::Buffer,
 
     phosphor_program: gl::Program,
@@ -49,19 +48,16 @@ impl PhosphorDisplay {
         let front_buffer = PhosphorBuffer::new(gl, width, height);
         let back_buffer = PhosphorBuffer::new(gl, width, height);
 
-        let beam_vertex_array = unsafe {
-            gl.create_vertex_array()
-                .expect("Cannot create vertex array")
-        };
-        let beam_buffer = unsafe {
-            gl.create_buffer()
-                .expect("Cannot create vertex array buffer")
-        };
-
         let back_buffer_vertex_array = unsafe {
             gl.create_vertex_array()
                 .expect("Cannot create vertex array")
         };
+
+        let beam_buffer = unsafe {
+            gl.create_buffer()
+                .expect("Cannot create buffer")
+        };
+
 
         Self {
             width,
@@ -71,7 +67,6 @@ impl PhosphorDisplay {
             phosphor_program,
             beam_program,
             beam_buffer,
-            beam_vertex_array,
             back_buffer_vertex_array,
         }
     }
@@ -132,7 +127,6 @@ impl PhosphorDisplay {
                 display_settings.intensity,
             );
 
-            //gl.bind_vertex_array(Some(self.beam_vertex_array));
             gl.enable_vertex_attrib_array(0);
             gl.bind_buffer(gl::ARRAY_BUFFER, Some(self.beam_buffer));
             gl.vertex_attrib_pointer_f32(0, 2, gl::FLOAT, false, 0, 0);
@@ -144,6 +138,17 @@ impl PhosphorDisplay {
             // Bind main framebuffer
             gl.bind_framebuffer(gl::FRAMEBUFFER, None);
         }
+    }
+
+    pub fn destroy(&self, gl: &gl::Context) {
+        unsafe {
+            gl.delete_buffer(self.beam_buffer);
+            gl.delete_vertex_array(self.back_buffer_vertex_array);
+            gl.delete_program(self.beam_program);
+            gl.delete_program(self.phosphor_program);
+        }
+        self.front_buffer.destroy(gl);
+        self.back_buffer.destroy(gl);
     }
 }
 
@@ -197,6 +202,13 @@ impl PhosphorBuffer {
         Self {
             framebuffer,
             texture,
+        }
+    }
+
+    pub fn destroy(&self, gl: &gl::Context) {
+        unsafe {
+            gl.delete_framebuffer(self.framebuffer);
+            gl.delete_texture(self.texture);
         }
     }
 }
