@@ -51,14 +51,14 @@ impl EguiGlProgram {
         info: PaintCallbackInfo,
         gl: &gl::Context,
         display_settings: &DisplaySettings,
-        lines: &[Vec2],
+        points: &[Vec2],
         dt: f32,
     ) {
         use gl::HasContext as _;
 
         unsafe {
             // Do internal painting
-            self.disp.paint(gl, display_settings, lines, dt);
+            self.disp.paint(gl, display_settings, points, dt);
 
             // Set variables
             gl.use_program(Some(self.program));

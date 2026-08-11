@@ -1,1 +1,3 @@
-* Pre-decay the beam by the amount of time that has passed while it sweeps!
+- [ ] Pre-decay the beam by the amount of time that has passed while it sweeps!
+- [ ] Interpolation for points which models RLC (on GPU)
+- [ ] Defocusing

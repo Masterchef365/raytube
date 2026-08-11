@@ -152,6 +152,7 @@ impl PhosphorDisplay {
             // Draw lines
             gl.use_program(Some(self.beam_program));
 
+            // points are stored in a texture
             gl.active_texture(gl::TEXTURE0);
             gl.bind_texture(gl::TEXTURE_2D, Some(self.beam_texture));
 
