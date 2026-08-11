@@ -62,14 +62,10 @@ impl EguiGlProgram {
 
             // Set variables
             gl.use_program(Some(self.program));
-            let viewport_px = info.viewport_in_pixels();
-            gl.uniform_1_f32(
-                gl.get_uniform_location(self.program, "width").as_ref(),
-                viewport_px.width_px as f32,
-            );
-            gl.uniform_1_f32(
-                gl.get_uniform_location(self.program, "height").as_ref(),
-                viewport_px.height_px as f32,
+            let [r, g, b] = display_settings.phosphor_color;
+            gl.uniform_3_f32(
+                gl.get_uniform_location(self.program, "phosphor_color").as_ref(),
+                r, g, b,
             );
             gl.active_texture(gl::TEXTURE0);
             gl.bind_texture(gl::TEXTURE_2D, Some(self.disp.back_buffer.texture));
@@ -128,6 +124,10 @@ impl egui::Widget for &mut DisplaySettings {
                 {
                     self.paused = !self.paused;
                 }
+            });
+            ui.horizontal(|ui| {
+                ui.label("Phosphor color: ");
+                ui.color_edit_button_rgb(&mut self.phosphor_color);
             });
 
             if ui.button("Restore defaults").clicked() {

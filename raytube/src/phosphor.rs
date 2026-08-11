@@ -116,14 +116,6 @@ impl PhosphorDisplay {
                 gl::FLOAT,
                 gl::PixelUnpackData::Slice(Some(bytemuck::cast_slice(&texture_buffer))),
             );
-            /*
-            gl.bind_buffer(gl::ARRAY_BUFFER, Some(self.beam_buffer));
-            gl.buffer_data_u8_slice(
-                gl::ARRAY_BUFFER,
-                bytemuck::cast_slice(lines),
-                gl::DYNAMIC_DRAW,
-            );
-            */
 
             // Bind front framebuffer for writing
             gl.bind_framebuffer(gl::FRAMEBUFFER, Some(self.front_buffer.framebuffer));
@@ -263,6 +255,7 @@ pub struct DisplaySettings {
     pub intensity: f32,
     pub paused: bool,
     pub amplitude: f32,
+    pub phosphor_color: [f32; 3],
 }
 
 impl Default for DisplaySettings {
@@ -273,6 +266,7 @@ impl Default for DisplaySettings {
             intensity: 0.1,
             paused: false,
             amplitude: 1.0,
+            phosphor_color: [0.1, 1.0, 0.2],
         }
     }
 }
