@@ -13,7 +13,6 @@ const MAX_BEAM_SAMPLES: usize = BEAM_TEXTURE_SIDE.pow(2);
 pub struct PhosphorDisplay {
     beam_program: gl::Program,
     //beam_buffer: gl::Buffer,
-
     phosphor_program: gl::Program,
     phosphor_vertex_array: gl::VertexArray,
 
@@ -58,10 +57,7 @@ impl PhosphorDisplay {
                 .expect("Cannot create vertex array")
         };
 
-        let beam_texture = unsafe {
-            gl.create_texture()
-                .expect("Cannot create texture")
-        };
+        let beam_texture = unsafe { gl.create_texture().expect("Cannot create texture") };
 
         unsafe {
             gl.bind_texture(gl::TEXTURE_2D, Some(beam_texture));
@@ -111,7 +107,17 @@ impl PhosphorDisplay {
                 texture_buffer[i * 4 + 0] = points[i].x;
                 texture_buffer[i * 4 + 1] = points[i].y;
             }
-            gl.tex_image_2d(gl::TEXTURE_2D, 0, gl::RGBA32F as _, BEAM_TEXTURE_SIDE as _, BEAM_TEXTURE_SIDE as _, 0, gl::RGBA, gl::FLOAT, gl::PixelUnpackData::Slice(Some(bytemuck::cast_slice(&texture_buffer))));
+            gl.tex_image_2d(
+                gl::TEXTURE_2D,
+                0,
+                gl::RGBA32F as _,
+                BEAM_TEXTURE_SIDE as _,
+                BEAM_TEXTURE_SIDE as _,
+                0,
+                gl::RGBA,
+                gl::FLOAT,
+                gl::PixelUnpackData::Slice(Some(bytemuck::cast_slice(&texture_buffer))),
+            );
             /*
             gl.bind_buffer(gl::ARRAY_BUFFER, Some(self.beam_buffer));
             gl.buffer_data_u8_slice(
