@@ -5,6 +5,9 @@ use eframe::egui_glow;
 use eframe::glow as gl;
 use egui::PaintCallbackInfo;
 use gl::HasContext;
+use rodio::Source;
+use rodio::microphone::Microphone;
+use rodio::microphone::MicrophoneBuilder;
 use std::sync::{Arc, Mutex};
 
 mod phosphor;
@@ -87,6 +90,7 @@ pub struct TemplateApp {
     pub save_data: SaveData,
     rendering: Arc<Mutex<EguiGlProgram>>,
     time: f64,
+    microphone: Microphone,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Default)]
@@ -103,8 +107,11 @@ impl TemplateApp {
             .unwrap_or_default();
         let gl = cc.gl.as_ref().unwrap();
 
+        let microphone = MicrophoneBuilder::new().default_device().unwrap().default_config().unwrap().open_stream().unwrap();
+
         Self {
             rendering: Arc::new(Mutex::new(EguiGlProgram::new(gl, 1024, 1024).unwrap())),
+            microphone,
             time: 0.0,
             save_data,
         }
@@ -128,13 +135,21 @@ impl TemplateApp {
 
         let display_settings = self.save_data.display_settings.clone();
 
+        // Get samples
+        let sample_rate_hz: u32 = self.microphone.sample_rate().into();
+        let mut n_samp = (dt * sample_rate_hz as f64).ceil().clamp(0., sample_rate_hz as f64) as usize;
+        if n_samp & 1 == 1 {
+            n_samp += 1;
+        }
+
+        let mut mic = self.microphone.by_ref().take(n_samp);
+        let mut lines = Vec::new();
+        while let (Some(x), Some(y)) = (mic.next(), mic.next()) {
+            lines.push(Vec2::new(x, y));
+        }
+
+        // Ensure an even number of samples
         let cb = egui_glow::CallbackFn::new(move |info, painter| {
-            let n = 800;
-            let lines: Vec<_> = (0..n).map(|i| {
-                let f = i as f32 / n as f32;
-                let f = f + time as f32 * 10.0;
-                Vec2::new((f * 7.01).cos(), (f * 3.0).sin())// * (f * 190.0).cos()
-            }).collect();
             rendering
                 .lock()
                 .unwrap()
