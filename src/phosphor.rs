@@ -7,8 +7,8 @@ use egui::PaintCallbackInfo;
 use gl::HasContext;
 use std::sync::{Arc, Mutex};
 
-const BEAM_TEXTURE_SIDE: usize = 2048;
-const MAX_BEAM_SAMPLES: usize = BEAM_TEXTURE_SIDE.pow(2);
+const BEAM_TEXTURE_SIDE: usize = 128;
+pub const MAX_BEAM_SAMPLES: usize = BEAM_TEXTURE_SIDE.pow(2);
 
 pub struct PhosphorDisplay {
     beam_program: gl::Program,
@@ -85,6 +85,7 @@ impl PhosphorDisplay {
         points: &[Vec2],
         dt: f32,
     ) {
+        assert!(points.len() <= MAX_BEAM_SAMPLES);
         use gl::HasContext as _;
 
         if display_settings.paused {

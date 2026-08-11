@@ -25,5 +25,5 @@ void main() {
     brightness = 1.0;
     if (dist != 0.0) brightness = 1.0 / dist;
 
-    gl_Position = vec4(pos_1, 0.0, 1.0);
+    gl_Position = vec4(out_pos, 0.0, 1.0);
 }

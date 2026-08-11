@@ -16,6 +16,8 @@ mod phosphor;
 use egui_wrapper::EguiGlProgram;
 use phosphor::{DisplaySettings, PhosphorDisplay};
 
+use crate::phosphor::MAX_BEAM_SAMPLES;
+
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> eframe::Result {
@@ -150,12 +152,10 @@ impl TemplateApp {
         let sample_rate_hz: u32 = self.microphone.sample_rate().into();
         let mut n_samp = (dt * sample_rate_hz as f64)
             .ceil()
-            .clamp(0., sample_rate_hz as f64) as usize;
+            .clamp(0., (MAX_BEAM_SAMPLES * 2 - 1) as f64) as usize;
         if n_samp & 1 == 1 {
             n_samp += 1;
         }
-
-        //let sweep_time_per_line = dt as f32 / n_samp as f32;
 
         let mut mic = self.microphone.by_ref().take(n_samp);
         let mut points = Vec::new();
