@@ -1,5 +1,6 @@
 use eframe::egui;
 use eframe::egui::DragValue;
+use eframe::egui::Pos2;
 use eframe::egui::Vec2;
 use eframe::egui_glow;
 use eframe::glow as gl;
@@ -144,10 +145,17 @@ impl TemplateApp {
             n_samp += 1;
         }
 
+        //let sweep_time_per_line = dt as f32 / n_samp as f32;
+
         let mut mic = self.microphone.by_ref().take(n_samp);
         let mut lines = Vec::new();
+        let mut last_pos = Pos2::new(0., 0.);
         while let (Some(x), Some(y)) = (mic.next(), mic.next()) {
-            lines.push(Vec2::new(x, y) * self.amplitude);
+            let pos = (Vec2::new(x, y) * self.amplitude).to_pos2();
+            let dist = last_pos.distance(pos);
+            let intensity = if dist < 1.0 { 1.0 } else { 1.0 / dist };
+            lines.push([pos.x * self.amplitude, pos.y * self.amplitude, intensity]);
+            last_pos = pos;
         }
 
         // Ensure an even number of samples

@@ -1,7 +1,7 @@
-in vec2 pos;
+in vec3 pos_brightness;
+out float brightness;
 
 void main() {
-    gl_Position = vec4(pos, 0.0, 1.0);
+    brightness = pos_brightness.z;
+    gl_Position = vec4(pos_brightness.xy, 0.0, 1.0);
 }
-
-

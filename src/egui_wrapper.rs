@@ -49,7 +49,7 @@ impl EguiGlProgram {
         }
     }
 
-    pub fn paint(&mut self, info: PaintCallbackInfo, gl: &gl::Context, display_settings: &DisplaySettings, lines: &[Vec2], dt: f32) {
+    pub fn paint(&mut self, info: PaintCallbackInfo, gl: &gl::Context, display_settings: &DisplaySettings, lines: &[[f32; 3]], dt: f32) {
         use gl::HasContext as _;
 
         unsafe {

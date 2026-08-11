@@ -71,7 +71,7 @@ impl PhosphorDisplay {
         }
     }
 
-    pub fn paint(&mut self, gl: &gl::Context, display_settings: &DisplaySettings, lines: &[Vec2], dt: f32) {
+    pub fn paint(&mut self, gl: &gl::Context, display_settings: &DisplaySettings, lines: &[[f32; 3]], dt: f32) {
         use gl::HasContext as _;
 
         // amplitude = initial * background_intensity^(# of frames n)
@@ -129,7 +129,7 @@ impl PhosphorDisplay {
 
             gl.enable_vertex_attrib_array(0);
             gl.bind_buffer(gl::ARRAY_BUFFER, Some(self.beam_buffer));
-            gl.vertex_attrib_pointer_f32(0, 2, gl::FLOAT, false, 0, 0);
+            gl.vertex_attrib_pointer_f32(0, 3, gl::FLOAT, false, 0, 0);
             gl.draw_arrays(gl::LINE_STRIP, 0, lines.len() as _);
             gl.disable_vertex_attrib_array(0);
 
