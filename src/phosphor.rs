@@ -53,11 +53,7 @@ impl PhosphorDisplay {
                 .expect("Cannot create vertex array")
         };
 
-        let beam_buffer = unsafe {
-            gl.create_buffer()
-                .expect("Cannot create buffer")
-        };
-
+        let beam_buffer = unsafe { gl.create_buffer().expect("Cannot create buffer") };
 
         Self {
             width,
@@ -71,8 +67,18 @@ impl PhosphorDisplay {
         }
     }
 
-    pub fn paint(&mut self, gl: &gl::Context, display_settings: &DisplaySettings, lines: &[[f32; 3]], dt: f32) {
+    pub fn paint(
+        &mut self,
+        gl: &gl::Context,
+        display_settings: &DisplaySettings,
+        lines: &[[f32; 3]],
+        dt: f32,
+    ) {
         use gl::HasContext as _;
+
+        if display_settings.paused {
+            return;
+        }
 
         // amplitude = initial * background_intensity^(# of frames n)
         // T = n * dt
@@ -85,7 +91,11 @@ impl PhosphorDisplay {
         unsafe {
             // Upload buffer
             gl.bind_buffer(gl::ARRAY_BUFFER, Some(self.beam_buffer));
-            gl.buffer_data_u8_slice(gl::ARRAY_BUFFER, bytemuck::cast_slice(lines), gl::DYNAMIC_DRAW);
+            gl.buffer_data_u8_slice(
+                gl::ARRAY_BUFFER,
+                bytemuck::cast_slice(lines),
+                gl::DYNAMIC_DRAW,
+            );
 
             // Bind front framebuffer for writing
             gl.bind_framebuffer(gl::FRAMEBUFFER, Some(self.front_buffer.framebuffer));
@@ -152,7 +162,6 @@ impl PhosphorDisplay {
     }
 }
 
-
 impl PhosphorBuffer {
     pub fn new(gl: &gl::Context, width: i32, height: i32) -> Self {
         let framebuffer = unsafe { gl.create_framebuffer().unwrap() };
@@ -213,17 +222,22 @@ impl PhosphorBuffer {
     }
 }
 
-
 #[derive(serde::Deserialize, serde::Serialize, Clone)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct DisplaySettings {
     pub memory_time: f32,
     pub saturation_point: f32,
     pub intensity: f32,
+    pub paused: bool,
 }
 
 impl Default for DisplaySettings {
     fn default() -> Self {
-        Self { memory_time: 1e-10, saturation_point: 100.0, intensity: 1.0 }
+        Self {
+            memory_time: 1e-10,
+            saturation_point: 100.0,
+            intensity: 1.0,
+            paused: false,
+        }
     }
 }

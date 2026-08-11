@@ -6,15 +6,15 @@ use eframe::egui_glow;
 use eframe::glow as gl;
 use egui::PaintCallbackInfo;
 use gl::HasContext;
-use rodio::Source;
 use rodio::microphone::Microphone;
 use rodio::microphone::MicrophoneBuilder;
+use rodio::Source;
 use std::sync::{Arc, Mutex};
 
-mod phosphor;
 mod egui_wrapper;
-use phosphor::{DisplaySettings, PhosphorDisplay};
+mod phosphor;
 use egui_wrapper::EguiGlProgram;
+use phosphor::{DisplaySettings, PhosphorDisplay};
 
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
@@ -109,7 +109,13 @@ impl TemplateApp {
             .unwrap_or_default();
         let gl = cc.gl.as_ref().unwrap();
 
-        let microphone = MicrophoneBuilder::new().default_device().unwrap().default_config().unwrap().open_stream().unwrap();
+        let microphone = MicrophoneBuilder::new()
+            .default_device()
+            .unwrap()
+            .default_config()
+            .unwrap()
+            .open_stream()
+            .unwrap();
 
         Self {
             rendering: Arc::new(Mutex::new(EguiGlProgram::new(gl, 1024, 1024).unwrap())),
@@ -130,8 +136,10 @@ impl TemplateApp {
             (lock.disp.width, lock.disp.height)
         };
 
-        let (rect, _response) =
-            ui.allocate_exact_size(egui::Vec2::new(width as f32, height as f32) / ui.pixels_per_point(), egui::Sense::drag());
+        let (rect, _response) = ui.allocate_exact_size(
+            egui::Vec2::new(width as f32, height as f32) / ui.pixels_per_point(),
+            egui::Sense::drag(),
+        );
 
         // Clone locals so we can move them into the paint callback:
         let rendering = self.rendering.clone();
@@ -140,7 +148,9 @@ impl TemplateApp {
 
         // Get samples
         let sample_rate_hz: u32 = self.microphone.sample_rate().into();
-        let mut n_samp = (dt * sample_rate_hz as f64).ceil().clamp(0., sample_rate_hz as f64) as usize;
+        let mut n_samp = (dt * sample_rate_hz as f64)
+            .ceil()
+            .clamp(0., sample_rate_hz as f64) as usize;
         if n_samp & 1 == 1 {
             n_samp += 1;
         }
@@ -161,10 +171,13 @@ impl TemplateApp {
 
         // Ensure an even number of samples
         let cb = egui_glow::CallbackFn::new(move |info, painter| {
-            rendering
-                .lock()
-                .unwrap()
-                .paint(info, painter.gl(), &display_settings, &lines, dt as f32);
+            rendering.lock().unwrap().paint(
+                info,
+                painter.gl(),
+                &display_settings,
+                &lines,
+                dt as f32,
+            );
         });
 
         let callback = egui::PaintCallback {
@@ -192,15 +205,45 @@ impl eframe::App for TemplateApp {
             });
             ui.horizontal(|ui| {
                 ui.label("Memory time: ");
-                ui.add(DragValue::new(&mut self.save_data.display_settings.memory_time).speed(1e-3));
+                ui.add(
+                    DragValue::new(&mut self.save_data.display_settings.memory_time).speed(1e-9),
+                );
             });
             ui.horizontal(|ui| {
+                ui.label("Memory time (exp): ");
+                let mut mem_time_exp = self.save_data.display_settings.memory_time.exp();
+                if ui
+                    .add(DragValue::new(&mut mem_time_exp).speed(1e-3))
+                    .changed()
+                {
+                    self.save_data.display_settings.memory_time = mem_time_exp.ln();
+                }
+            });
+
+            ui.horizontal(|ui| {
                 ui.label("Saturation pt.: ");
-                ui.add(DragValue::new(&mut self.save_data.display_settings.saturation_point).speed(1e-3));
+                ui.add(
+                    DragValue::new(&mut self.save_data.display_settings.saturation_point)
+                        .speed(1e-3),
+                );
             });
             ui.horizontal(|ui| {
                 ui.label("Amplitude: ");
                 ui.add(DragValue::new(&mut self.amplitude).speed(1e-3));
+            });
+            ui.horizontal(|ui| {
+                ui.label("Pause: ");
+                if ui
+                    .button(if self.save_data.display_settings.paused {
+                        "[Pause] / Play"
+                    } else {
+                        "Pause / [Play]"
+                    })
+                    .clicked()
+                {
+                    self.save_data.display_settings.paused =
+                        !self.save_data.display_settings.paused;
+                }
             });
 
             ui.separator();

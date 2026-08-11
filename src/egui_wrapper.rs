@@ -1,3 +1,4 @@
+use crate::phosphor::{DisplaySettings, PhosphorDisplay};
 use eframe::egui;
 use eframe::egui::DragValue;
 use eframe::egui::Vec2;
@@ -6,7 +7,6 @@ use eframe::glow as gl;
 use egui::PaintCallbackInfo;
 use gl::HasContext;
 use std::sync::{Arc, Mutex};
-use crate::phosphor::{PhosphorDisplay, DisplaySettings};
 
 pub struct EguiGlProgram {
     program: gl::Program,
@@ -49,7 +49,14 @@ impl EguiGlProgram {
         }
     }
 
-    pub fn paint(&mut self, info: PaintCallbackInfo, gl: &gl::Context, display_settings: &DisplaySettings, lines: &[[f32; 3]], dt: f32) {
+    pub fn paint(
+        &mut self,
+        info: PaintCallbackInfo,
+        gl: &gl::Context,
+        display_settings: &DisplaySettings,
+        lines: &[[f32; 3]],
+        dt: f32,
+    ) {
         use gl::HasContext as _;
 
         unsafe {
