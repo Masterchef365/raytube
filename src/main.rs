@@ -96,10 +96,13 @@ pub struct SaveData {
 
 impl TemplateApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        let save_data = cc
+        let mut save_data: SaveData = cc
             .storage
             .and_then(|storage| eframe::get_value(storage, eframe::APP_KEY))
             .unwrap_or_default();
+
+        save_data.display_settings.paused = false;
+
         let gl = cc.gl.as_ref().unwrap();
 
         let microphone = MicrophoneBuilder::new()

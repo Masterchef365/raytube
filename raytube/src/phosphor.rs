@@ -86,6 +86,9 @@ impl PhosphorDisplay {
         use gl::HasContext as _;
 
         if display_settings.paused {
+            unsafe {
+                gl.bind_framebuffer(gl::FRAMEBUFFER, None);
+            }
             return;
         }
 
