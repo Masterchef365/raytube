@@ -54,7 +54,7 @@ impl EguiGlProgram {
         info: PaintCallbackInfo,
         gl: &gl::Context,
         display_settings: &DisplaySettings,
-        lines: &[[f32; 3]],
+        lines: &[Vec2],
         dt: f32,
     ) {
         use gl::HasContext as _;

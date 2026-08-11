@@ -7,12 +7,17 @@ use egui::PaintCallbackInfo;
 use gl::HasContext;
 use std::sync::{Arc, Mutex};
 
+const BEAM_TEXTURE_SIDE: usize = 2048;
+const MAX_BEAM_SAMPLES: usize = BEAM_TEXTURE_SIDE.pow(2);
+
 pub struct PhosphorDisplay {
     beam_program: gl::Program,
-    beam_buffer: gl::Buffer,
+    //beam_buffer: gl::Buffer,
 
     phosphor_program: gl::Program,
-    back_buffer_vertex_array: gl::VertexArray,
+    phosphor_vertex_array: gl::VertexArray,
+
+    beam_texture: gl::Texture,
 
     pub front_buffer: PhosphorBuffer,
     pub back_buffer: PhosphorBuffer,
@@ -48,12 +53,21 @@ impl PhosphorDisplay {
         let front_buffer = PhosphorBuffer::new(gl, width, height);
         let back_buffer = PhosphorBuffer::new(gl, width, height);
 
-        let back_buffer_vertex_array = unsafe {
+        let phosphor_vertex_array = unsafe {
             gl.create_vertex_array()
                 .expect("Cannot create vertex array")
         };
 
-        let beam_buffer = unsafe { gl.create_buffer().expect("Cannot create buffer") };
+        let beam_texture = unsafe {
+            gl.create_texture()
+                .expect("Cannot create texture")
+        };
+
+        unsafe {
+            gl.bind_texture(gl::TEXTURE_2D, Some(beam_texture));
+            gl.tex_parameter_i32(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as _);
+            gl.tex_parameter_i32(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as _);
+        }
 
         Self {
             width,
@@ -62,8 +76,9 @@ impl PhosphorDisplay {
             back_buffer,
             phosphor_program,
             beam_program,
-            beam_buffer,
-            back_buffer_vertex_array,
+            //beam_buffer,
+            beam_texture,
+            phosphor_vertex_array,
         }
     }
 
@@ -71,7 +86,7 @@ impl PhosphorDisplay {
         &mut self,
         gl: &gl::Context,
         display_settings: &DisplaySettings,
-        lines: &[[f32; 3]],
+        points: &[Vec2],
         dt: f32,
     ) {
         use gl::HasContext as _;
@@ -89,13 +104,22 @@ impl PhosphorDisplay {
         let background_intensity = display_settings.memory_time.powf(dt);
 
         unsafe {
-            // Upload buffer
+            // Upload beam buffer
+            gl.bind_texture(gl::TEXTURE_2D, Some(self.beam_texture));
+            let mut texture_buffer: Vec<f32> = vec![0_f32; MAX_BEAM_SAMPLES * 4];
+            for i in 0..points.len() {
+                texture_buffer[i * 4 + 0] = points[i].x;
+                texture_buffer[i * 4 + 1] = points[i].y;
+            }
+            gl.tex_image_2d(gl::TEXTURE_2D, 0, gl::RGBA32F as _, BEAM_TEXTURE_SIDE as _, BEAM_TEXTURE_SIDE as _, 0, gl::RGBA, gl::FLOAT, gl::PixelUnpackData::Slice(Some(bytemuck::cast_slice(&texture_buffer))));
+            /*
             gl.bind_buffer(gl::ARRAY_BUFFER, Some(self.beam_buffer));
             gl.buffer_data_u8_slice(
                 gl::ARRAY_BUFFER,
                 bytemuck::cast_slice(lines),
                 gl::DYNAMIC_DRAW,
             );
+            */
 
             // Bind front framebuffer for writing
             gl.bind_framebuffer(gl::FRAMEBUFFER, Some(self.front_buffer.framebuffer));
@@ -126,22 +150,26 @@ impl PhosphorDisplay {
             gl.active_texture(gl::TEXTURE0);
             gl.bind_texture(gl::TEXTURE_2D, Some(self.back_buffer.texture));
 
-            gl.bind_vertex_array(Some(self.back_buffer_vertex_array));
+            gl.bind_vertex_array(Some(self.phosphor_vertex_array));
             gl.draw_arrays(gl::TRIANGLES, 0, 3);
 
             // Draw lines
             gl.use_program(Some(self.beam_program));
+
+            gl.active_texture(gl::TEXTURE0);
+            gl.bind_texture(gl::TEXTURE_2D, Some(self.beam_texture));
+
             gl.uniform_1_f32(
                 gl.get_uniform_location(self.beam_program, "intensity")
                     .as_ref(),
                 display_settings.intensity,
             );
 
-            gl.enable_vertex_attrib_array(0);
-            gl.bind_buffer(gl::ARRAY_BUFFER, Some(self.beam_buffer));
-            gl.vertex_attrib_pointer_f32(0, 3, gl::FLOAT, false, 0, 0);
-            gl.draw_arrays(gl::LINES, 0, lines.len() as _);
-            gl.disable_vertex_attrib_array(0);
+            //gl.enable_vertex_attrib_array(0);
+            //gl.bind_buffer(gl::ARRAY_BUFFER, Some(self.beam_buffer));
+            //gl.vertex_attrib_pointer_f32(0, 3, gl::FLOAT, false, 0, 0);
+            gl.draw_arrays(gl::LINES, 0, points.len() as i32 - 1);
+            //gl.disable_vertex_attrib_array(0);
 
             std::mem::swap(&mut self.front_buffer, &mut self.back_buffer);
 
@@ -152,10 +180,11 @@ impl PhosphorDisplay {
 
     pub fn destroy(&self, gl: &gl::Context) {
         unsafe {
-            gl.delete_buffer(self.beam_buffer);
-            gl.delete_vertex_array(self.back_buffer_vertex_array);
+            //gl.delete_buffer(self.beam_buffer);
+            gl.delete_vertex_array(self.phosphor_vertex_array);
             gl.delete_program(self.beam_program);
             gl.delete_program(self.phosphor_program);
+            gl.delete_texture(self.beam_texture);
         }
         self.front_buffer.destroy(gl);
         self.back_buffer.destroy(gl);

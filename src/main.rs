@@ -158,17 +158,10 @@ impl TemplateApp {
         //let sweep_time_per_line = dt as f32 / n_samp as f32;
 
         let mut mic = self.microphone.by_ref().take(n_samp);
-        let mut lines = Vec::new();
-        let mut last_pos: Option<Pos2> = None;
+        let mut points = Vec::new();
         while let (Some(x), Some(y)) = (mic.next(), mic.next()) {
-            let pos = (Vec2::new(x, y) * self.amplitude).to_pos2();
-            if let Some(last_pos) = last_pos {
-                let dist = last_pos.distance(pos);
-                let intensity = if dist == 0.0 { 1.0 } else { 1.0 / dist };
-                lines.push([last_pos.x, last_pos.y, intensity]);
-                lines.push([pos.x, pos.y, intensity]);
-            }
-            last_pos = Some(pos);
+            let pos = Vec2::new(x, y) * self.amplitude;
+            points.push(pos);
         }
 
         // Ensure an even number of samples
@@ -177,7 +170,7 @@ impl TemplateApp {
                 info,
                 painter.gl(),
                 &display_settings,
-                &lines,
+                &points,
                 dt as f32,
             );
         });
