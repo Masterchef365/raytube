@@ -91,6 +91,7 @@ pub struct TemplateApp {
     rendering: Arc<Mutex<EguiGlProgram>>,
     time: f64,
     microphone: Microphone,
+    amplitude: f32,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Default)]
@@ -114,6 +115,7 @@ impl TemplateApp {
             microphone,
             time: 0.0,
             save_data,
+            amplitude: 1.0,
         }
     }
 
@@ -145,7 +147,7 @@ impl TemplateApp {
         let mut mic = self.microphone.by_ref().take(n_samp);
         let mut lines = Vec::new();
         while let (Some(x), Some(y)) = (mic.next(), mic.next()) {
-            lines.push(Vec2::new(x, y));
+            lines.push(Vec2::new(x, y) * self.amplitude);
         }
 
         // Ensure an even number of samples
@@ -187,6 +189,11 @@ impl eframe::App for TemplateApp {
                 ui.label("Saturation pt.: ");
                 ui.add(DragValue::new(&mut self.save_data.display_settings.saturation_point).speed(1e-3));
             });
+            ui.horizontal(|ui| {
+                ui.label("Amplitude: ");
+                ui.add(DragValue::new(&mut self.amplitude).speed(1e-3));
+            });
+
             ui.separator();
         });
 
