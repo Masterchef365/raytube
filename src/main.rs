@@ -110,8 +110,13 @@ impl TemplateApp {
         let dt = time - self.time;
         self.time = time;
 
+        let (width, height) = {
+            let lock = self.rendering.lock().unwrap();
+            (lock.disp.width, lock.disp.height)
+        };
+
         let (rect, response) =
-            ui.allocate_exact_size(egui::Vec2::splat(300.0), egui::Sense::drag());
+            ui.allocate_exact_size(egui::Vec2::new(width as f32, height as f32) / ui.pixels_per_point(), egui::Sense::drag());
 
         // Clone locals so we can move them into the paint callback:
         let rendering = self.rendering.clone();
@@ -119,9 +124,11 @@ impl TemplateApp {
         let display_settings = self.save_data.display_settings.clone();
 
         let cb = egui_glow::CallbackFn::new(move |info, painter| {
-            let lines: Vec<_> = (0..99).map(|i| {
-                let f = time as f32 + i as f32 / 100.0;
-                Vec2::new(f.cos(), f.sin()) * (f * 190.0).cos()
+            let n = 800;
+            let lines: Vec<_> = (0..n).map(|i| {
+                let f = i as f32 / n as f32;
+                let f = f + time as f32 * 10.0;
+                Vec2::new((f * 7.01).cos(), (f * 3.0).sin())// * (f * 190.0).cos()
             }).collect();
             rendering
                 .lock()
