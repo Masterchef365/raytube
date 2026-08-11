@@ -159,14 +159,16 @@ impl TemplateApp {
 
         let mut mic = self.microphone.by_ref().take(n_samp);
         let mut lines = Vec::new();
-        let mut last_pos = Pos2::new(0., 0.);
+        let mut last_pos: Option<Pos2> = None;
         while let (Some(x), Some(y)) = (mic.next(), mic.next()) {
             let pos = (Vec2::new(x, y) * self.amplitude).to_pos2();
-            let dist = last_pos.distance(pos);
-            let intensity = if dist == 0.0 { 1.0 } else { 1.0 / dist };
-            lines.push([last_pos.x, last_pos.y, intensity]);
-            lines.push([pos.x, pos.y, intensity]);
-            last_pos = pos;
+            if let Some(last_pos) = last_pos {
+                let dist = last_pos.distance(pos);
+                let intensity = if dist == 0.0 { 1.0 } else { 1.0 / dist };
+                lines.push([last_pos.x, last_pos.y, intensity]);
+                lines.push([pos.x, pos.y, intensity]);
+            }
+            last_pos = Some(pos);
         }
 
         // Ensure an even number of samples
@@ -209,16 +211,19 @@ impl eframe::App for TemplateApp {
                     DragValue::new(&mut self.save_data.display_settings.memory_time).speed(1e-9),
                 );
             });
+
+            /*
             ui.horizontal(|ui| {
-                ui.label("Memory time (exp): ");
-                let mut mem_time_exp = self.save_data.display_settings.memory_time.exp();
+                ui.label("(Log) Memory time: ");
+                let mut mem_time_ln = self.save_data.display_settings.memory_time.ln_1p();
                 if ui
-                    .add(DragValue::new(&mut mem_time_exp).speed(1e-3))
+                    .add(DragValue::new(&mut mem_time_ln).speed(1e-6))
                     .changed()
                 {
-                    self.save_data.display_settings.memory_time = mem_time_exp.ln();
+                    self.save_data.display_settings.memory_time = mem_time_ln.exp() - 1.0;
                 }
             });
+            */
 
             ui.horizontal(|ui| {
                 ui.label("Saturation pt.: ");
@@ -245,6 +250,10 @@ impl eframe::App for TemplateApp {
                         !self.save_data.display_settings.paused;
                 }
             });
+
+            if ui.button("Restore defaults").clicked() {
+                self.save_data.display_settings = Default::default();
+            }
 
             ui.separator();
         });
