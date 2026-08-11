@@ -102,8 +102,8 @@ impl PhosphorDisplay {
             gl.bind_texture(gl::TEXTURE_2D, Some(self.beam_texture));
             let mut texture_buffer: Vec<f32> = vec![0_f32; MAX_BEAM_SAMPLES * 4];
             for i in 0..points.len() {
-                texture_buffer[i * 4 + 0] = points[i].x;
-                texture_buffer[i * 4 + 1] = points[i].y;
+                texture_buffer[i * 4 + 0] = points[i].x * display_settings.amplitude;
+                texture_buffer[i * 4 + 1] = points[i].y * display_settings.amplitude;
             }
             gl.tex_image_2d(
                 gl::TEXTURE_2D,
@@ -262,6 +262,7 @@ pub struct DisplaySettings {
     pub saturation_point: f32,
     pub intensity: f32,
     pub paused: bool,
+    pub amplitude: f32,
 }
 
 impl Default for DisplaySettings {
@@ -271,6 +272,7 @@ impl Default for DisplaySettings {
             saturation_point: 100.0,
             intensity: 0.1,
             paused: false,
+            amplitude: 1.0,
         }
     }
 }

@@ -1,5 +1,4 @@
 use eframe::egui;
-use eframe::egui::DragValue;
 use eframe::egui::Vec2;
 use eframe::egui_glow;
 use eframe::glow as gl;
@@ -87,7 +86,6 @@ pub struct TemplateApp {
     rendering: Arc<Mutex<EguiGlProgram>>,
     time: f64,
     microphone: Microphone,
-    amplitude: f32,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Default)]
@@ -117,7 +115,6 @@ impl TemplateApp {
             microphone,
             time: 0.0,
             save_data,
-            amplitude: 1.0,
         }
     }
 
@@ -153,8 +150,7 @@ impl TemplateApp {
         let mut mic = self.microphone.by_ref().take(n_samp);
         let mut points = Vec::new();
         while let (Some(x), Some(y)) = (mic.next(), mic.next()) {
-            let pos = Vec2::new(x, y) * self.amplitude;
-            points.push(pos);
+            points.push(Vec2::new(x, y));
         }
 
         // Ensure an even number of samples
@@ -187,60 +183,7 @@ impl eframe::App for TemplateApp {
 
         egui::Panel::left("cfg").show(ui, |ui| {
             ui.strong("Phosphor");
-            ui.horizontal(|ui| {
-                ui.label("Intensity: ");
-                ui.add(DragValue::new(&mut self.save_data.display_settings.intensity).speed(1e-3));
-            });
-            ui.horizontal(|ui| {
-                ui.label("Memory time: ");
-                ui.add(
-                    DragValue::new(&mut self.save_data.display_settings.memory_time).speed(1e-9),
-                );
-            });
-
-            /*
-            ui.horizontal(|ui| {
-                ui.label("(Log) Memory time: ");
-                let mut mem_time_ln = self.save_data.display_settings.memory_time.ln_1p();
-                if ui
-                    .add(DragValue::new(&mut mem_time_ln).speed(1e-6))
-                    .changed()
-                {
-                    self.save_data.display_settings.memory_time = mem_time_ln.exp() - 1.0;
-                }
-            });
-            */
-
-            ui.horizontal(|ui| {
-                ui.label("Saturation pt.: ");
-                ui.add(
-                    DragValue::new(&mut self.save_data.display_settings.saturation_point)
-                        .speed(1e-3),
-                );
-            });
-            ui.horizontal(|ui| {
-                ui.label("Amplitude: ");
-                ui.add(DragValue::new(&mut self.amplitude).speed(1e-3));
-            });
-            ui.horizontal(|ui| {
-                ui.label("Pause: ");
-                if ui
-                    .button(if self.save_data.display_settings.paused {
-                        "[Pause] / Play"
-                    } else {
-                        "Pause / [Play]"
-                    })
-                    .clicked()
-                {
-                    self.save_data.display_settings.paused =
-                        !self.save_data.display_settings.paused;
-                }
-            });
-
-            if ui.button("Restore defaults").clicked() {
-                self.save_data.display_settings = Default::default();
-            }
-
+            ui.add(&mut self.save_data.display_settings);
             ui.separator();
         });
 

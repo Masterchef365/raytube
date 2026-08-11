@@ -1,8 +1,8 @@
 use crate::phosphor::{DisplaySettings, PhosphorDisplay};
-use egui;
-use egui::Vec2;
-use egui_glow::glow as gl;
 use egui::PaintCallbackInfo;
+use egui::Vec2;
+use egui::{self, DragValue};
+use egui_glow::glow as gl;
 use gl::HasContext;
 
 pub struct EguiGlProgram {
@@ -94,5 +94,45 @@ impl EguiGlProgram {
             gl.bind_vertex_array(Some(self.vertex_array));
             gl.draw_arrays(gl::TRIANGLES, 0, 3);
         }
+    }
+}
+
+impl egui::Widget for &mut DisplaySettings {
+    fn ui(self, ui: &mut egui::Ui) -> egui::Response {
+        ui.vertical(|ui| {
+            ui.horizontal(|ui| {
+                ui.label("Intensity: ");
+                ui.add(DragValue::new(&mut self.intensity).speed(1e-3));
+            });
+            ui.horizontal(|ui| {
+                ui.label("Memory time: ");
+                ui.add(DragValue::new(&mut self.memory_time).speed(1e-9));
+            });
+            ui.horizontal(|ui| {
+                ui.label("Saturation pt.: ");
+                ui.add(DragValue::new(&mut self.saturation_point).speed(1e-3));
+            });
+            ui.horizontal(|ui| {
+                ui.label("Amplitude: ");
+                ui.add(DragValue::new(&mut self.amplitude).speed(1e-3));
+            });
+            ui.horizontal(|ui| {
+                ui.label("Pause: ");
+                if ui
+                    .button(if self.paused {
+                        "[Pause] / Play"
+                    } else {
+                        "Pause / [Play]"
+                    })
+                    .clicked()
+                {
+                    self.paused = !self.paused;
+                }
+            });
+
+            if ui.button("Restore defaults").clicked() {
+                *self = DisplaySettings::default();
+            }
+        }).response
     }
 }
