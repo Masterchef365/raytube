@@ -67,6 +67,11 @@ impl EguiGlProgram {
                 gl.get_uniform_location(self.program, "phosphor_color").as_ref(),
                 r, g, b,
             );
+            gl.uniform_1_f32(
+                gl.get_uniform_location(self.program, "barrel").as_ref(),
+                display_settings.barrel_distortion,
+            );
+
             gl.active_texture(gl::TEXTURE0);
             gl.bind_texture(gl::TEXTURE_2D, Some(self.disp.back_buffer.texture));
 
@@ -124,6 +129,10 @@ impl egui::Widget for &mut DisplaySettings {
                 {
                     self.paused = !self.paused;
                 }
+            });
+           ui.horizontal(|ui| {
+                ui.label("Barrel distortion: ");
+                ui.add(DragValue::new(&mut self.barrel_distortion).speed(1e-3));
             });
             ui.horizontal(|ui| {
                 ui.label("Phosphor color: ");

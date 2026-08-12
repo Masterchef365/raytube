@@ -278,6 +278,7 @@ pub struct DisplaySettings {
     /// Remember the last sample from the previous paint() call and use it as the first vertex in
     /// the next?
     pub continue_from_last_sample: bool,
+    pub barrel_distortion: f32,
 }
 
 impl Default for DisplaySettings {
@@ -290,6 +291,7 @@ impl Default for DisplaySettings {
             amplitude: 1.0,
             phosphor_color: [0.1, 1.0, 0.2],
             continue_from_last_sample: true,
+            barrel_distortion: 0.0,
         }
     }
 }
