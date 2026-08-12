@@ -15,6 +15,8 @@ pub struct PhosphorDisplay {
 
     beam_texture: gl::Texture,
 
+    last_sample: Option<Vec2>,
+
     pub front_buffer: PhosphorBuffer,
     pub back_buffer: PhosphorBuffer,
 
@@ -72,6 +74,7 @@ impl PhosphorDisplay {
             //beam_buffer,
             beam_texture,
             phosphor_vertex_array,
+            last_sample: None,
         }
     }
 
@@ -82,8 +85,7 @@ impl PhosphorDisplay {
         points: &[Vec2],
         dt: f32,
     ) {
-        assert!(points.len() <= MAX_BEAM_SAMPLES);
-        use gl::HasContext as _;
+        assert!(points.len() + 1 <= MAX_BEAM_SAMPLES);
 
         if display_settings.paused {
             unsafe {
@@ -104,10 +106,22 @@ impl PhosphorDisplay {
             // Upload beam buffer
             gl.bind_texture(gl::TEXTURE_2D, Some(self.beam_texture));
             let mut texture_buffer: Vec<f32> = vec![0_f32; MAX_BEAM_SAMPLES * 4];
-            for i in 0..points.len() {
-                texture_buffer[i * 4 + 0] = points[i].x * display_settings.amplitude;
-                texture_buffer[i * 4 + 1] = points[i].y * display_settings.amplitude;
+
+            let maybe_first_pos = self.last_sample.filter(|_| display_settings.continue_from_last_sample);
+
+            let mut first_index = 0;
+            if let Some(first_pos) = maybe_first_pos {
+                texture_buffer[0] = first_pos.x * display_settings.amplitude;
+                texture_buffer[1] = first_pos.y * display_settings.amplitude;
+                first_index += 1;
             }
+
+            for i in 0..points.len() {
+                let idx = first_index + i;
+                texture_buffer[idx * 4 + 0] = points[i].x * display_settings.amplitude;
+                texture_buffer[idx * 4 + 1] = points[i].y * display_settings.amplitude;
+            }
+
             gl.tex_image_2d(
                 gl::TEXTURE_2D,
                 0,
@@ -164,13 +178,19 @@ impl PhosphorDisplay {
                     .as_ref(),
                 display_settings.intensity,
             );
-            gl.draw_arrays(gl::LINES, 0, points.len() as i32 * 2 - 1);
+            let mut n = points.len() as i32 * 2 - 1;
+            if self.last_sample.filter(|_| display_settings.continue_from_last_sample).is_some() {
+                n += 1;
+            }
+            gl.draw_arrays(gl::LINES, 0, n);
 
             std::mem::swap(&mut self.front_buffer, &mut self.back_buffer);
 
             // Bind main framebuffer
             gl.bind_framebuffer(gl::FRAMEBUFFER, None);
         }
+
+        self.last_sample = points.last().copied();
     }
 
     pub fn destroy(&self, gl: &gl::Context) {
@@ -255,6 +275,9 @@ pub struct DisplaySettings {
     pub paused: bool,
     pub amplitude: f32,
     pub phosphor_color: [f32; 3],
+    /// Remember the last sample from the previous paint() call and use it as the first vertex in
+    /// the next?
+    pub continue_from_last_sample: bool,
 }
 
 impl Default for DisplaySettings {
@@ -266,6 +289,7 @@ impl Default for DisplaySettings {
             paused: false,
             amplitude: 1.0,
             phosphor_color: [0.1, 1.0, 0.2],
+            continue_from_last_sample: true,
         }
     }
 }

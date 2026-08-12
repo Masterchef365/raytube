@@ -129,6 +129,11 @@ impl egui::Widget for &mut DisplaySettings {
                 ui.label("Phosphor color: ");
                 ui.color_edit_button_rgb(&mut self.phosphor_color);
             });
+            ui.horizontal(|ui| {
+                ui.label("Continue from last sample: ");
+                ui.checkbox(&mut self.continue_from_last_sample, "Enable");
+            });
+
 
             if ui.button("Restore defaults").clicked() {
                 *self = DisplaySettings::default();
