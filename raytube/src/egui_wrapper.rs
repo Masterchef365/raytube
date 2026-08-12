@@ -106,8 +106,11 @@ impl egui::Widget for &mut DisplaySettings {
                 ui.add(DragValue::new(&mut self.intensity).speed(1e-3));
             });
             ui.horizontal(|ui| {
-                ui.label("Memory time: ");
-                ui.add(DragValue::new(&mut self.memory_time).speed(1e-9));
+                ui.label("Memory time (log): ");
+                let mut ln_mem_time = self.memory_time.ln();
+                if ui.add(DragValue::new(&mut ln_mem_time).speed(1e-3)).changed() {
+                    self.memory_time = ln_mem_time.exp();
+                }
             });
             ui.horizontal(|ui| {
                 ui.label("Saturation pt.: ");

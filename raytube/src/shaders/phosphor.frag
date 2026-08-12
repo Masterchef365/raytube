@@ -11,7 +11,7 @@ void main() {
     float hysteresis = texture(back_buffer, uv).r;
 
     // Clip the color, modelling the tendency for electrons to stick and then repel others
-    hysteresis = min(hysteresis, saturation_point);
+    hysteresis = clamp(hysteresis, -saturation_point, saturation_point);
 
     out_color = vec4(vec3(hysteresis * intensity), 1);
 }
