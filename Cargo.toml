@@ -19,8 +19,8 @@ eframe = { version = "0.36", default-features = false, features = [
     "wayland",       # To support Linux (and CI)
     "x11",
 ] }
-rodio = "0.22.2"
 raytube = { path = "./raytube" }
+cpal = "0.18.1"
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

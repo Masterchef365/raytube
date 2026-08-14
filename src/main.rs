@@ -1,11 +1,10 @@
+use cpal::traits::DeviceTrait;
+use cpal::traits::HostTrait;
+use cpal::traits::StreamTrait;
 use eframe::egui;
 use eframe::egui::Vec2;
 use eframe::egui_glow;
 use eframe::glow as gl;
-use rodio::microphone::Microphone;
-use rodio::microphone::MicrophoneBuilder;
-use rodio::Source;
-use std::num::NonZeroU32;
 use std::sync::{Arc, Mutex};
 
 use raytube::egui_wrapper::EguiGlProgram;
@@ -85,8 +84,8 @@ fn main() {
 pub struct TemplateApp {
     pub save_data: SaveData,
     rendering: Arc<Mutex<EguiGlProgram>>,
+    points: Arc<Mutex<Vec<Vec2>>>,
     time: f64,
-    microphone: Microphone,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Default)]
@@ -106,18 +105,41 @@ impl TemplateApp {
 
         let gl = cc.gl.as_ref().unwrap();
 
-        let microphone = MicrophoneBuilder::new()
-            .default_device()
-            .unwrap()
-            .default_config()
-            .unwrap()
-            .prefer_sample_rates([NonZeroU32::try_from(48_000).unwrap()])
-            .open_stream()
-            .unwrap();
+        let host = cpal::default_host();
+        let device = host
+            .default_input_device()
+            .expect("no output device available");
+
+        let config = device
+            .default_input_config()
+            .expect("No output config")
+            .config();
+
+        let shared_points = Arc::new(Mutex::new(Vec::new()));
+        let shared_points_clone = shared_points.clone();
+
+        let stream = device.build_input_stream(
+            config, 
+            move |data: &[f32], _info| {
+                let mut points = Vec::new();
+                for xy in data.chunks_exact(2) {
+                    points.push(Vec2::new(xy[0], xy[1]));
+                }
+
+                shared_points_clone.lock().unwrap().extend_from_slice(&points);
+            }, 
+            move |err| {
+                eprintln!("Output stream error {err}");
+            }, 
+            None).unwrap();
+
+        stream.play().unwrap();
+
+        std::mem::forget(stream);
 
         Self {
+            points: shared_points,
             rendering: Arc::new(Mutex::new(EguiGlProgram::new(gl, 1024, 1024).unwrap())),
-            microphone,
             time: 0.0,
             save_data,
         }
@@ -143,21 +165,7 @@ impl TemplateApp {
 
         let display_settings = self.save_data.display_settings.clone();
 
-        // Get samples
-        let sample_rate_hz: u32 = self.microphone.sample_rate().into();
-        let mut n_samp = (dt * sample_rate_hz as f64)
-            .ceil()
-            .clamp(0., (MAX_BEAM_SAMPLES * 2 - 1) as f64) as usize;
-        if n_samp & 1 == 1 {
-            n_samp += 1;
-        }
-
-        let mut mic = self.microphone.by_ref().take(n_samp);
-        let mut points = Vec::new();
-        while let (Some(x), Some(y)) = (mic.next(), mic.next()) {
-            points.push(Vec2::new(x, y));
-        }
-
+        let mut points = std::mem::take(&mut *self.points.lock().unwrap());
         points.truncate(MAX_BEAM_SAMPLES - 1);
 
         // Ensure an even number of samples
