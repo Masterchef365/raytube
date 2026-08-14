@@ -5,6 +5,7 @@ use eframe::glow as gl;
 use rodio::microphone::Microphone;
 use rodio::microphone::MicrophoneBuilder;
 use rodio::Source;
+use std::num::NonZeroU32;
 use std::sync::{Arc, Mutex};
 
 use raytube::egui_wrapper::EguiGlProgram;
@@ -110,6 +111,7 @@ impl TemplateApp {
             .unwrap()
             .default_config()
             .unwrap()
+            .prefer_sample_rates([NonZeroU32::try_from(48_000).unwrap()])
             .open_stream()
             .unwrap();
 
@@ -155,6 +157,8 @@ impl TemplateApp {
         while let (Some(x), Some(y)) = (mic.next(), mic.next()) {
             points.push(Vec2::new(x, y));
         }
+
+        points.truncate(MAX_BEAM_SAMPLES - 1);
 
         // Ensure an even number of samples
         let cb = egui_glow::CallbackFn::new(move |info, painter| {
