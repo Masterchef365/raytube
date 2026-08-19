@@ -60,6 +60,9 @@ impl EguiGlProgram {
             // Do internal painting
             self.disp.paint(gl, display_settings, points, dt);
 
+            gl.disable(gl::BLEND);
+            //gl.blend_func(gl::SRC_ALPHA, gl::ONE);
+
             // Set variables
             gl.use_program(Some(self.program));
             let [r, g, b] = display_settings.phosphor_color;
