@@ -13,7 +13,6 @@ pub trait RayFrameApp: Send + Sync + 'static {
     fn update(&mut self, frame: &mut [[f32; 2]], sample_rate: u32);
 }
 
-pub const DEFAULT_FRAME_SIZE: usize = 1024;
 pub const DEFAULT_SAMPLE_RATE: u32 = 48_000;
 
 #[derive(serde::Deserialize, serde::Serialize, Default)]
@@ -27,6 +26,7 @@ struct RayFrame<A> {
     rendering: Arc<Mutex<EguiGlProgram>>,
     shared_resources: Arc<Mutex<SharedResources<A>>>,
     sample_rate: u32,
+    last_timestamp: f64,
 }
 
 impl<A: RayFrameApp> RayFrame<A> {
@@ -47,6 +47,7 @@ impl<A: RayFrameApp> RayFrame<A> {
             rendering: Arc::new(Mutex::new(EguiGlProgram::new(gl, 1024, 1024).unwrap())),
             sample_rate,
             shared_resources,
+            last_timestamp: cc.egui_ctx.time(),
         }
     }
 }
@@ -141,7 +142,13 @@ impl<A: RayFrameApp> RayFrame<A> {
 
         let display_settings = self.save_data.display_settings.clone();
 
-        let mut points = self.shared_resources.lock().unwrap().update();
+        // Time
+        let time = ui.time();
+        let dt = time - self.last_timestamp;
+        self.last_timestamp = time;
+
+        // Get points
+        let mut points = self.shared_resources.lock().unwrap().update(dt as f32);
 
         let dt = points.len() as f32 / self.sample_rate as f32;
 
@@ -208,7 +215,7 @@ impl<A: RayFrameApp> SharedResources<A> {
         let supported_config = supported_configs_range
             .find(|p| p.channels() == 2)
             .expect("no supported config?!")
-            .with_max_sample_rate();
+            .with_standard_sample_rate();
 
         let sample_rate = supported_config.config().sample_rate;
 
@@ -219,7 +226,6 @@ impl<A: RayFrameApp> SharedResources<A> {
         let stream = device.build_output_stream(
             supported_config.config(),
             move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
-                println!("{}", data.len());
                 let mut lck = audio_inst.lock().unwrap();
                 lck.app.update(bytemuck::cast_slice_mut(data), sample_rate);
                 lck.put_data(bytemuck::cast_slice(data));
@@ -257,11 +263,13 @@ impl<A: RayFrameApp> SharedResources<A> {
         self.back_buffer.lock().unwrap().extend_from_slice(frame);
     }
 
-    pub fn update(&mut self) -> Vec<[f32; 2]> {
+    pub fn update(&mut self, real_dt: f32) -> Vec<[f32; 2]> {
         #[cfg(not(feature = "audio"))]
         {
-            let mut back_buffer = self.back_buffer.lock().unwrap();
-            self.app.update(&mut back_buffer, DEFAULT_SAMPLE_RATE);
+            let n_samples_this_frame = (real_dt * DEFAULT_SAMPLE_RATE as f32).ceil() as usize;
+            let mut buffer = vec![[0.0; 2]; n_samples_this_frame];
+            self.app.update(&mut buffer, DEFAULT_SAMPLE_RATE);
+            self.put_data(bytemuck::cast_slice(&buffer));
         }
 
         std::mem::swap(&mut self.back_buffer, &mut self.front_buffer);

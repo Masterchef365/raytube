@@ -7,7 +7,7 @@ struct App {
 impl App {
     pub fn new() -> Self {
         Self {
-            time,
+            time: 0.0,
         }
     }
 }
@@ -18,18 +18,18 @@ impl RayFrameApp for App {
         for i in 0..frame.len() {
             let f = i as f32 / frame.len() as f32;
             let p = f * std::f32::consts::TAU;
-            let x = p.cos() / 2.0;
-            let y = p.sin() / 2.0;
+            let x = p.cos() / 1.0;
+            let y = p.sin() / 1.0;
 
             self.time += 1.0 / frame.len() as f32;
-            let x = x * self.time.cos();
-            let y = y * self.time.sin();
+            let x = x * (self.time / 1.0).cos() / 2.0;
+            let y = y * (self.time / 1.0).sin() / 2.0;
 
             frame[i] = [x, y];
         }
 
 
-        println!("{}", frame.len())
+        println!("{} {}", frame.len(), sample_rate);
     }
 }
 
