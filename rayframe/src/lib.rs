@@ -13,6 +13,9 @@ pub trait RayFrameApp: Send + Sync + 'static {
     fn update(&mut self, frame: &mut [[f32; 2]], sample_rate: u32);
 }
 
+pub const DEFAULT_FRAME_SIZE: usize = 1024;
+pub const DEFAULT_SAMPLE_RATE: u32 = 48_000;
+
 #[derive(serde::Deserialize, serde::Serialize, Default)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct SaveData {
@@ -23,6 +26,7 @@ struct RayFrame<A> {
     save_data: SaveData,
     rendering: Arc<Mutex<EguiGlProgram>>,
     shared_resources: Arc<Mutex<SharedResources<A>>>,
+    sample_rate: u32,
 }
 
 impl<A: RayFrameApp> RayFrame<A> {
@@ -34,17 +38,22 @@ impl<A: RayFrameApp> RayFrame<A> {
 
         let gl = cc.gl.as_ref().unwrap();
 
+        let shared_resources = SharedResources::new(app);
+        let sample_rate = shared_resources.lock().unwrap().sample_rate;
+
         Self {
             save_data,
             // TODO: Configurable screen resolution, size
             rendering: Arc::new(Mutex::new(EguiGlProgram::new(gl, 1024, 1024).unwrap())),
-            shared_resources: SharedResources::new(app),
+            sample_rate,
+            shared_resources,
         }
     }
 }
 
 struct SharedResources<A> {
     app: A,
+    sample_rate: u32,
     front_buffer: SharedSamples,
     back_buffer: SharedSamples,
 }
@@ -132,8 +141,10 @@ impl<A: RayFrameApp> RayFrame<A> {
 
         let display_settings = self.save_data.display_settings.clone();
 
-        /*
-        let mut points = std::mem::take(&mut *self.points.lock().unwrap());
+        let mut points = self.shared_resources.lock().unwrap().update();
+
+        let dt = points.len() as f32 / self.sample_rate as f32;
+
         points.truncate(MAX_BEAM_SAMPLES - 1);
 
         // Ensure an even number of samples
@@ -142,7 +153,7 @@ impl<A: RayFrameApp> RayFrame<A> {
                 info,
                 painter.gl(),
                 &display_settings,
-                &points,
+                bytemuck::cast_slice(points.as_slice()),
                 dt as f32,
             );
         });
@@ -152,7 +163,6 @@ impl<A: RayFrameApp> RayFrame<A> {
             callback: Arc::new(cb),
         };
         ui.painter().add(callback);
-        */
     }
 }
 
@@ -200,16 +210,19 @@ impl<A: RayFrameApp> SharedResources<A> {
             .expect("no supported config?!")
             .with_max_sample_rate();
 
-        let inst = Arc::new(Mutex::new(Self::from_app(app)));
+        let sample_rate = supported_config.config().sample_rate;
+
+        let inst = Arc::new(Mutex::new(Self::from_app(app, sample_rate)));
 
         let audio_inst = inst.clone();
-
-        let sample_rate = supported_config.config().sample_rate;
 
         let stream = device.build_output_stream(
             supported_config.config(),
             move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
-                audio_inst.lock().unwrap().app.update(bytemuck::cast_slice_mut(data), sample_rate);
+                println!("{}", data.len());
+                let mut lck = audio_inst.lock().unwrap();
+                lck.app.update(bytemuck::cast_slice_mut(data), sample_rate);
+                lck.put_data(bytemuck::cast_slice(data));
             },
             move |err| {
                 // TODO: Logging on WASM
@@ -217,7 +230,9 @@ impl<A: RayFrameApp> SharedResources<A> {
             },
             None // Timeout for stream initialization: None = wait indefinitely,
                  // Some(Duration) = time to wait for the backend to initialize the stream.
-        );
+        ).unwrap();
+
+        stream.play();
 
         std::mem::forget(stream);
 
@@ -226,18 +241,30 @@ impl<A: RayFrameApp> SharedResources<A> {
 
     #[cfg(not(feature = "audio"))]
     pub fn new(app: A) -> Arc<Mutex<Self>> {
-        Arc::new(Mutex::new(Self::from_app(app)))
+        Arc::new(Mutex::new(Self::from_app(app, DEFAULT_SAMPLE_RATE)))
     }
 
-    pub fn from_app(app: A) -> Self {
+    pub fn from_app(app: A, sample_rate: u32) -> Self {
         Self {
-            back_buffer: Default::default(),
-            front_buffer: Default::default(),
+            back_buffer: Arc::new(Mutex::new(vec![])),
+            front_buffer: Arc::new(Mutex::new(vec![])),
+            sample_rate,
             app,
         }
     }
 
-    pub fn update(&mut self) -> SharedSamples {
-        todo!()
+    pub fn put_data(&mut self, frame: &[[f32; 2]]) {
+        self.back_buffer.lock().unwrap().extend_from_slice(frame);
+    }
+
+    pub fn update(&mut self) -> Vec<[f32; 2]> {
+        #[cfg(not(feature = "audio"))]
+        {
+            let mut back_buffer = self.back_buffer.lock().unwrap();
+            self.app.update(&mut back_buffer, DEFAULT_SAMPLE_RATE);
+        }
+
+        std::mem::swap(&mut self.back_buffer, &mut self.front_buffer);
+        std::mem::take(&mut self.front_buffer.lock().unwrap())
     }
 }
