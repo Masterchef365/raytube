@@ -232,7 +232,7 @@ impl<A: RayFrameApp> SharedResources<A> {
                  // Some(Duration) = time to wait for the backend to initialize the stream.
         ).unwrap();
 
-        stream.play();
+        stream.play().unwrap();
 
         std::mem::forget(stream);
 
