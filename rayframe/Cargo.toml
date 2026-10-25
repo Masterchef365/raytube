@@ -27,6 +27,10 @@ raytube = { path = "../raytube" }
 cpal = { version = "0.18.1", optional = true }
 bytemuck = "1.25.2"
 
+[dev-dependencies]
+vector-text-hershey = "0.1.1"
+vector-text-core = "0.1.0"
+
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 env_logger = "0.11"
