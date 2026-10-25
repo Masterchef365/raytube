@@ -24,8 +24,8 @@ eframe = { version = "0.36", default-features = false, features = [
     "x11",
 ] }
 raytube = { path = "../raytube" }
-cpal = { version = "0.18.1", optional = true }
 bytemuck = "1.25.2"
+log = "0.4"
 
 [dev-dependencies]
 vector-text-hershey = "0.1.1"
@@ -33,10 +33,12 @@ vector-text-core = "0.1.0"
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+cpal = { version = "0.18.1", optional = true }
 env_logger = "0.11"
 
 # web:
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+cpal = { version = "0.18.1", optional = true, features = ["audioworklet"] }
 wasm-bindgen-futures = "0.4"
 web-sys = "0.3.70"           # to access the DOM (to hide the loading text)
 getrandom = { version = "0.4.3", features = ["wasm_js"] }

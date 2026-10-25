@@ -79,7 +79,7 @@ pub fn mainloop<A: RayFrameApp>(app: A) -> eframe::Result {
 
 // When compiling to web using trunk:
 #[cfg(target_arch = "wasm32")]
-pub fn mainloop<A: RayFrameApp>(app: A) {
+pub fn mainloop<A: RayFrameApp>(app: A) -> eframe::Result {
     use eframe::wasm_bindgen::JsCast as _;
 
     // Redirect `log` message to `console.log` and friends:
@@ -123,6 +123,7 @@ pub fn mainloop<A: RayFrameApp>(app: A) {
             }
         }
     });
+    Ok(())
 }
 
 impl<A: RayFrameApp> RayFrame<A> {
