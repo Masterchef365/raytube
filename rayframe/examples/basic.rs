@@ -1,35 +1,52 @@
+use std::f32::consts::TAU;
+
 use rayframe::{mainloop, RayFrameApp};
 
 struct App {
-    time: f32,
+    time: u32,
 }
 
 impl App {
     pub fn new() -> Self {
         Self {
-            time: 0.0,
+            time: 0,
         }
     }
+}
+
+fn period(time: u32, n: u32) -> f32 {
+    (time % n) as f32 / n as f32
 }
 
 impl RayFrameApp for App {
     fn update(&mut self, frame: &mut [[f32; 2]], sample_rate: u32) {
 
         for i in 0..frame.len() {
+            self.time += 1;
+
             let f = i as f32 / frame.len() as f32;
-            let p = f * std::f32::consts::TAU;
+            let p = f * TAU;
             let x = p.cos() / 1.0;
             let y = p.sin() / 1.0;
 
-            self.time += 1.0 / frame.len() as f32;
-            let x = x * (self.time / 1.0).cos() / 2.0;
-            let y = y * (self.time / 1.0).sin() / 2.0;
+            let q = period(self.time, 100000) * TAU;
+
+            let x = x * q.cos() / 2.0;
+            let y = y * q.sin() / 2.0;
+
+
+
+            let q = period(self.time, 1000) * TAU;
+
+            let x = x + q.cos() / 2.0;
+            let y = y + q.sin() / 2.0;
+
 
             frame[i] = [x, y];
         }
 
-
-        println!("{} {}", frame.len(), sample_rate);
+        let q = period(self.time, 100000) * TAU;
+        //println!("{} {}", frame.len(), sample_rate);
     }
 }
 
