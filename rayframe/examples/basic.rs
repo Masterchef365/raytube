@@ -24,29 +24,25 @@ impl RayFrameApp for App {
         for i in 0..frame.len() {
             self.time += 1;
 
-            let f = i as f32 / frame.len() as f32;
+            let f = period(self.time, sample_rate / 93);
             let p = f * TAU;
             let x = p.cos() / 1.0;
             let y = p.sin() / 1.0;
 
-            let q = period(self.time, 100000) * TAU;
+            let q = period(self.time, sample_rate) * TAU;
 
             let x = x * q.cos() / 2.0;
             let y = y * q.sin() / 2.0;
 
 
 
-            let q = period(self.time, 1000) * TAU;
+            let q = period(self.time, sample_rate / 48) * TAU;
 
             let x = x + q.cos() / 2.0;
             let y = y + q.sin() / 2.0;
 
-
             frame[i] = [x, y];
         }
-
-        let q = period(self.time, 100000) * TAU;
-        //println!("{} {}", frame.len(), sample_rate);
     }
 }
 

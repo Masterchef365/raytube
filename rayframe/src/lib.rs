@@ -204,7 +204,6 @@ impl<A: RayFrameApp> eframe::App for RayFrame<A> {
 impl<A: RayFrameApp> SharedResources<A> {
     #[cfg(feature = "audio")]
     pub fn new(app: A) -> Arc<Mutex<Self>> {
-        use cpal::Data;
         use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 
         let host = cpal::default_host();
@@ -228,8 +227,7 @@ impl<A: RayFrameApp> SharedResources<A> {
             supported_config.config(),
             move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
                 let mut lck = audio_inst.lock().unwrap();
-                lck.app.update(bytemuck::cast_slice_mut(data), sample_rate);
-                lck.put_data(bytemuck::cast_slice(data));
+                lck.step(bytemuck::cast_slice_mut(data));
             },
             move |err| {
                 // TODO: Logging on WASM
@@ -260,17 +258,21 @@ impl<A: RayFrameApp> SharedResources<A> {
         }
     }
 
-    pub fn put_data(&mut self, frame: &[[f32; 2]]) {
+    fn step(&mut self, frame: &mut [[f32; 2]]) {
+        self.app.update(bytemuck::cast_slice_mut(frame), self.sample_rate);
+        self.put_data(frame);
+    }
+
+    fn put_data(&mut self, frame: &[[f32; 2]]) {
         self.back_buffer.lock().unwrap().extend_from_slice(frame);
     }
 
-    pub fn update(&mut self, real_dt: f32) -> Vec<[f32; 2]> {
+    fn update(&mut self, real_dt: f32) -> Vec<[f32; 2]> {
         #[cfg(not(feature = "audio"))]
         {
-            let n_samples_this_frame = (real_dt * DEFAULT_SAMPLE_RATE as f32).ceil() as usize;
+            let n_samples_this_frame = (real_dt * self.sample_rate as f32).ceil() as usize;
             let mut buffer = vec![[0.0; 2]; n_samples_this_frame];
-            self.app.update(&mut buffer, DEFAULT_SAMPLE_RATE);
-            self.put_data(bytemuck::cast_slice(&buffer));
+            self.step(&mut buffer);
         }
 
         std::mem::swap(&mut self.back_buffer, &mut self.front_buffer);
