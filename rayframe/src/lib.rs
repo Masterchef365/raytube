@@ -1,4 +1,4 @@
-use eframe::egui;
+pub use eframe::egui;
 use eframe::egui::Vec2;
 use eframe::egui_glow;
 use eframe::glow as gl;
@@ -11,6 +11,8 @@ pub type SharedSamples = Arc<Mutex<Vec<[f32; 2]>>>;
 
 pub trait RayFrameApp: Send + Sync + 'static {
     fn update(&mut self, frame: &mut [[f32; 2]], sample_rate: u32);
+
+    fn input(&mut self, input: &egui::InputState, screen_rect: egui::Rect, dt: f64) {}
 }
 
 pub const DEFAULT_SAMPLE_RATE: u32 = 48_000;
@@ -133,7 +135,7 @@ impl<A: RayFrameApp> RayFrame<A> {
             (lock.disp.width, lock.disp.height)
         };
 
-        let (rect, _response) = ui.allocate_exact_size(
+        let (screen_rect, _response) = ui.allocate_exact_size(
             egui::Vec2::new(width as f32, height as f32) / ui.pixels_per_point(),
             egui::Sense::drag(),
         );
@@ -148,7 +150,12 @@ impl<A: RayFrameApp> RayFrame<A> {
         let dt = time - self.last_timestamp;
         self.last_timestamp = time;
 
-        // Get points
+        // Get keyboard/mouse input
+        ui.input(|r| {
+            self.shared_resources.lock().unwrap().app.input(r, screen_rect, dt);
+        });
+
+        // Call update(), get points
         let mut points = self.shared_resources.lock().unwrap().update(dt as f32);
 
         let dt = points.len() as f32 / self.sample_rate as f32;
@@ -167,7 +174,7 @@ impl<A: RayFrameApp> RayFrame<A> {
         });
 
         let callback = egui::PaintCallback {
-            rect,
+            rect: screen_rect,
             callback: Arc::new(cb),
         };
         ui.painter().add(callback);
